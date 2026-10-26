@@ -1,0 +1,17 @@
+modules = ["nodejs-22", "postgresql-16"]
+run = "npm run dev"
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+PORT = "3000"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "vm"
+build = ["sh", "-c", "npm ci && npm run build"]
+run = ["sh", "-c", "npm start"]
