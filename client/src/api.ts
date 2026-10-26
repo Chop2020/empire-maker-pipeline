@@ -1,4 +1,4 @@
-import type { JobRecord, License, ProductRecord, ProductSummary } from '../../shared/types';
+import type { JobRecord, License, Persona, PresetTone, ProductRecord, ProductSummary, WriterSettings } from '../../shared/types';
 
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -30,6 +30,20 @@ export interface Health {
   db: string;
 }
 
+export interface WriteEstimate {
+  sections: number;
+  cut: number;
+  outOfScope: number;
+  convenienceRecipes: number;
+  calls: number;
+  cachedSystemTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  usd: number | null;
+  model: string;
+  aiReady: boolean;
+}
+
 export const api = {
   health: () => req<Health>('/api/health'),
   products: () => req<ProductSummary[]>('/api/products'),
@@ -47,6 +61,19 @@ export const api = {
   render: (id: string) => req<JobRecord>(`/api/products/${id}/render`, { method: 'POST' }),
   jobs: (id: string) => req<JobRecord[]>(`/api/products/${id}/jobs`),
   remove: (id: string) => req<void>(`/api/products/${id}`, { method: 'DELETE' }),
+  estimateWrite: (id: string, body: Partial<WriterSettings>) => req<WriteEstimate>(`/api/products/${id}/write/estimate`, json('POST', body)),
+  write: (id: string, body: Partial<WriterSettings>) => req<JobRecord>(`/api/products/${id}/write`, json('POST', body)),
+  discardDraft: (id: string) => req<ProductRecord>(`/api/products/${id}/draft`, { method: 'DELETE' }),
+  lockSection: (id: string, sid: string, locked: boolean) => req<ProductRecord>(`/api/products/${id}/sections/${sid}/lock`, json('PATCH', { locked })),
+  cancelJob: (jobId: string) => req<{ ok: boolean }>(`/api/jobs/${jobId}/cancel`, { method: 'POST' }),
+  job: (jobId: string) => req<JobRecord>(`/api/jobs/${jobId}`),
+  personas: () => req<Persona[]>('/api/personas'),
+  persona: (pid: string) => req<Persona>(`/api/personas/${pid}`),
+  createPersona: (body: { name: string; presets: PresetTone[]; sliders: Persona['sliders']; baseId?: string }) => req<Persona>('/api/personas', json('POST', body)),
+  updatePersona: (pid: string, body: Partial<Persona>) => req<Persona>(`/api/personas/${pid}`, json('PATCH', body)),
+  duplicatePersona: (pid: string) => req<Persona>(`/api/personas/${pid}/duplicate`, { method: 'POST' }),
+  deletePersona: (pid: string) => req<void>(`/api/personas/${pid}`, { method: 'DELETE' }),
+  researchPersona: (body: { authorName?: string; samples?: string; notes?: string }) => req<JobRecord>('/api/personas/research', json('POST', body)),
   downloadUrl: (id: string, inline = false) => `/api/products/${id}/download${inline ? '?inline=1' : ''}`,
   sourceUrl: (id: string) => `/api/products/${id}/source`,
 };

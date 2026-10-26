@@ -1,4 +1,4 @@
-// In-process job runner. One user, one box: a simple serial queue is enough and survives nothing fancy.
+// In-process job runner with two lanes, so a long Writer run never blocks ingest or render.
 // Job state lives in the DB so the UI can poll it; jobs left "running" by a restart are marked failed on boot.
 import { desc, eq, inArray } from 'drizzle-orm';
 import type { JobRecord } from '../shared/types.js';
@@ -6,11 +6,14 @@ import { getDb } from './db/index.js';
 import { jobs } from './db/schema.js';
 import { newId } from './util/ids.js';
 
-type Handler = (job: JobRecord, progress: (pct: number, message: string) => Promise<void>) => Promise<void>;
+export type JobProgress = (pct: number, message: string) => Promise<void>;
+type Handler = (job: JobRecord & { payload: Record<string, unknown> }, progress: JobProgress) => Promise<unknown>;
 
 const handlers = new Map<JobRecord['kind'], Handler>();
-const queue: string[] = [];
-let running = false;
+const LANE: Record<JobRecord['kind'], 'fast' | 'ai'> = { ingest: 'fast', render: 'fast', write: 'ai', persona: 'ai' };
+const queues: Record<'fast' | 'ai', string[]> = { fast: [], ai: [] };
+const running: Record<'fast' | 'ai', boolean> = { fast: false, ai: false };
+const cancelled = new Set<string>();
 
 export function registerHandler(kind: JobRecord['kind'], h: Handler) {
   handlers.set(kind, h);
@@ -24,16 +27,18 @@ const toRecord = (r: typeof jobs.$inferSelect): JobRecord => ({
   progress: r.progress,
   message: r.message,
   error: r.error,
+  result: r.result ?? undefined,
   createdAt: r.createdAt.toISOString(),
   updatedAt: r.updatedAt.toISOString(),
 });
 
-export async function enqueue(productId: string, kind: JobRecord['kind']): Promise<JobRecord> {
+export async function enqueue(productId: string | null, kind: JobRecord['kind'], payload: Record<string, unknown> = {}): Promise<JobRecord> {
   const db = await getDb();
   const id = newId('job');
-  const [row] = await db.insert(jobs).values({ id, productId, kind, status: 'queued', message: 'Queued' }).returning();
-  queue.push(id);
-  void pump();
+  const [row] = await db.insert(jobs).values({ id, productId, kind, status: 'queued', message: 'Queued', payload }).returning();
+  const lane = LANE[kind];
+  queues[lane].push(id);
+  void pump(lane);
   return toRecord(row);
 }
 
@@ -49,6 +54,12 @@ export async function jobsForProduct(productId: string): Promise<JobRecord[]> {
   return rows.map(toRecord);
 }
 
+/** Ask a running job to stop at its next checkpoint (the Writer checks between sections). */
+export function cancelJob(id: string) {
+  cancelled.add(id);
+}
+export const isCancelled = (id: string) => cancelled.has(id);
+
 export async function recoverJobs() {
   const db = await getDb();
   await db
@@ -57,39 +68,42 @@ export async function recoverJobs() {
     .where(inArray(jobs.status, ['queued', 'running']));
 }
 
-async function pump() {
-  if (running) return;
-  running = true;
+async function pump(lane: 'fast' | 'ai') {
+  if (running[lane]) return;
+  running[lane] = true;
   try {
-    while (queue.length) {
-      const id = queue.shift()!;
-      await runOne(id);
-    }
+    while (queues[lane].length) await runOne(queues[lane].shift()!);
   } finally {
-    running = false;
+    running[lane] = false;
   }
 }
 
 async function runOne(id: string) {
   const db = await getDb();
-  const job = await getJob(id);
-  if (!job) return;
+  const [row] = await db.select().from(jobs).where(eq(jobs.id, id));
+  if (!row) return;
+  const job = { ...toRecord(row), payload: row.payload ?? {} };
   const handler = handlers.get(job.kind);
   if (!handler) return;
   await db.update(jobs).set({ status: 'running', updatedAt: new Date() }).where(eq(jobs.id, id));
   let lastWrite = 0;
-  const progress = async (pct: number, message: string) => {
+  const progress: JobProgress = async (pct, message) => {
     const now = Date.now();
     if (now - lastWrite < 400 && pct < 100) return; // throttle DB writes
     lastWrite = now;
-    await db.update(jobs).set({ progress: pct, message, updatedAt: new Date() }).where(eq(jobs.id, id));
+    await db.update(jobs).set({ progress: Math.round(pct), message, updatedAt: new Date() }).where(eq(jobs.id, id));
   };
   try {
-    await handler(job, progress);
-    await db.update(jobs).set({ status: 'done', progress: 100, updatedAt: new Date() }).where(eq(jobs.id, id));
+    const result = await handler(job, progress);
+    await db
+      .update(jobs)
+      .set({ status: 'done', progress: 100, result: result ?? null, updatedAt: new Date() })
+      .where(eq(jobs.id, id));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[job ${id}] ${job.kind} failed:`, e);
     await db.update(jobs).set({ status: 'failed', error: msg.slice(0, 2000), updatedAt: new Date() }).where(eq(jobs.id, id));
+  } finally {
+    cancelled.delete(id);
   }
 }

@@ -1,0 +1,105 @@
+{
+  "personaId": "flavor-hunter",
+  "note": "Approved-style examples. The Writer uses these as few-shot targets. Each pairs a source recipe (as ingested) with the rewrite.",
+  "examples": [
+    {
+      "mode": "upgrade",
+      "source": {
+        "title": "Steak with Chipotle Cheese Sauce",
+        "ingredients": [
+          "1 tablespoon olive oil",
+          "2 large white onions, coarsely chopped",
+          "1 (10.75 ounce) can Campbell's® Condensed Cheddar Cheese Soup",
+          "1/2 cup milk",
+          "1/2 teaspoon ground chipotle chile pepper",
+          "2 medium tomatoes, coarsely chopped",
+          "1 (2 pound) skirt or beef flank steak, 1-inch thick, cut into 8 pieces",
+          "1/4 cup chopped fresh cilantro leaves (optional)"
+        ]
+      },
+      "rewrite": {
+        "title": "Grilled Skirt Steak with Smoky Chipotle Cheddar Sauce",
+        "headnote": "Skirt steak is the cut that rewards impatience. It's thin and loose-grained, and it packs more beefy flavor per bite than steaks that cost twice as much. The only rules are heat and the knife: cook it hard and fast, then slice it against the grain, or you'll be chewing until Tuesday.",
+        "ingredients": [
+          "2 pounds skirt or flank steak, cut into 8 pieces",
+          "Kosher salt",
+          "1 tablespoon olive oil",
+          "2 large white onions, coarsely chopped",
+          "1 tablespoon butter",
+          "1 tablespoon all-purpose flour",
+          "1 cup whole milk",
+          "1 1/2 cups (6 ounces) grated sharp cheddar",
+          "1/2 teaspoon ground chipotle chile",
+          "2 medium tomatoes, coarsely chopped",
+          "1/4 cup chopped fresh cilantro (optional)"
+        ],
+        "directions": [
+          "Pat the steak dry and salt it well on both sides. If you can give it 30 to 40 minutes on the counter, do: the salt draws out moisture, dissolves in it, and soaks back in as seasoning.",
+          "Heat the oil in a 2-quart saucepan over medium heat. Add the onions and cook, stirring now and then, for about 5 minutes, until soft and just starting to turn golden.",
+          "Add the butter. When it melts, sprinkle in the flour and stir for 1 minute. Slowly whisk in the milk and simmer for 2 to 3 minutes, until the sauce coats the back of a spoon.",
+          "Turn the heat to low and stir in the cheddar a handful at a time until smooth. Stir in the chipotle and tomatoes. Keep it warm but don't let it boil, or the cheese turns grainy.",
+          "Heat the grill to high and oil the grates. Grill skirt steak 3 to 4 minutes per side (flank 5 to 6) until the center reads 130°F for medium-rare. Rest 5 minutes.",
+          "Slice thinly against the grain, spoon the sauce over, and scatter with cilantro."
+        ],
+        "tips": [
+          "Why it works: a from-scratch cheese sauce takes five extra minutes and tastes like cheese instead of the can it came in. The chipotle brings smoke, the fresh tomato cuts the richness."
+        ]
+      }
+    },
+    {
+      "mode": "keep-convenience",
+      "source": {
+        "title": "Round Steak and Gravy II",
+        "ingredients": [
+          "1 1/2 pounds thin cut round steak",
+          "1 (10.75 ounce) can condensed cream of mushroom soup",
+          "1 (10.5 ounce) can condensed French onion soup",
+          "1 (10.75 ounce) can water"
+        ]
+      },
+      "rewrite": {
+        "title": "Slow-Oven Round Steak in Onion-Mushroom Gravy",
+        "headnote": "Round steak is lean, hardworking muscle, and it will punish you for rushing it. Give it two and a half hours in a low oven, though, and it goes from shoe leather to fork-tender. The canned soups are a shortcut and they make no apologies for it: this is a dump-and-wait supper that tastes like you tried harder.",
+        "ingredients": [
+          "1 1/2 pounds thin-cut round steak",
+          "Salt and black pepper",
+          "1 tablespoon vegetable oil",
+          "1 (10.75 ounce) can condensed cream of mushroom soup",
+          "1 (10.5 ounce) can condensed French onion soup",
+          "1 soup can (about 1 1/4 cups) water"
+        ],
+        "directions": [
+          "Heat the oven to 325°F. Trim any thick fat from the steak, cut it into serving pieces, and season both sides with salt and pepper.",
+          "Heat the oil in an ovenproof roasting pan or Dutch oven over medium-high heat. Sear the steak about 1 minute per side, just long enough to brown it. Brown is flavor; gray is not.",
+          "Take the pan off the heat. Stir in both soups and the water, scraping up the browned bits from the bottom, and turn the steak to coat it.",
+          "Cover tightly with a lid or foil and bake for 2 1/2 hours, until a fork slides into the meat with no resistance."
+        ]
+      }
+    },
+    {
+      "mode": "rewrite",
+      "source": { "title": "Philly Steak Sandwich" },
+      "rewrite": {
+        "title": "Skillet Philly-Style Steak Sandwiches",
+        "headnote": "Purists will tell you a real one needs a flat-top griddle, a particular roll and a loud opinion about cheese. This one needs a skillet and about twenty minutes. The trick is slicing the beef thin and searing it in batches; crowd the pan and the meat steams instead of browning.",
+        "ingredients": [
+          "1 pound beef sirloin",
+          "1/2 teaspoon each salt, black pepper, paprika, chili powder, onion powder and garlic powder",
+          "1/2 teaspoon each dried thyme, marjoram and basil",
+          "3 tablespoons vegetable oil, divided",
+          "1 onion, sliced",
+          "1 green bell pepper, cut into thin strips",
+          "3 ounces Swiss cheese, thinly sliced",
+          "4 hoagie rolls, split"
+        ],
+        "directions": [
+          "Put the sirloin in the freezer for 20 minutes; firm meat slices thin far more easily. Cut it into thin strips about 2 inches long.",
+          "Mix the salt, pepper, paprika, chili powder, onion powder, garlic powder and herbs in a small bowl. Toss with the beef.",
+          "Heat half the oil in a large skillet over medium-high heat until it shimmers. Sear the beef in two batches, about 2 minutes per batch, until browned at the edges. Set aside.",
+          "Add the remaining oil and cook the onion and pepper for 5 to 6 minutes, until soft and charred in spots.",
+          "Heat the broiler. Divide the beef among the rolls, top with the vegetables and the cheese, and broil on a baking sheet for 1 to 2 minutes, until the cheese melts. Close and serve."
+        ]
+      }
+    }
+  ]
+}

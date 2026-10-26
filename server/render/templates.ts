@@ -90,11 +90,18 @@ function blockHtml(b: Block): string {
       const ings = b.ingredients
         .map((i) => (/:$/.test(i.trim()) ? `<li class="ing-group ui">${esc(i.replace(/:$/, ''))}</li>` : `<li>${esc(i)}</li>`))
         .join('');
+      const tips = (b.tips ?? [])
+        .map((t) => {
+          const m = t.match(/^(why it works|make it better|note|tip)\s*:\s*/i);
+          return `<div class="r-tip"><span class="ui">${esc(m ? m[1] : 'Note')}</span>${esc(m ? t.slice(m[0].length) : t)}</div>`;
+        })
+        .join('');
       return `<div class="recipe-body">
+        ${b.headnote ? `<p class="r-headnote">${esc(b.headnote)}</p>` : ''}
         ${meta ? `<div class="r-meta ui">${esc(meta)}</div>` : ''}
         <div class="r-grid">
           <div class="r-ing"><div class="r-label ui">Ingredients</div><ul>${ings}</ul></div>
-          <div class="r-dir"><div class="r-label ui">Directions</div><ol>${b.directions.map((d) => `<li>${esc(d)}</li>`).join('')}</ol></div>
+          <div class="r-dir"><div class="r-label ui">Directions</div><ol>${b.directions.map((d) => `<li>${esc(d)}</li>`).join('')}</ol>${tips}</div>
         </div>
       </div>`;
     }
@@ -181,6 +188,9 @@ blockquote{margin:1em 0;padding:0 0 0 14pt;border-left:2.5pt solid var(--accent)
 .fill{margin:10pt 0}.fill-q{font-weight:600;margin-bottom:6pt}.fill-line{border-bottom:.75pt solid var(--muted);height:20pt}
 .img-slot{border:1pt dashed var(--rule);color:var(--muted);font-size:8pt;padding:24pt;text-align:center;margin:12pt 0}
 .recipe-title{font-size:${t.trim.w >= 8 ? 24 : 20}pt;font-weight:700;letter-spacing:-.01em;padding-bottom:10pt;border-bottom:2pt solid var(--accent);margin-bottom:6pt}
+.r-headnote{font-family:${t.fonts.display};font-style:italic;font-size:1.05em;line-height:1.5;color:var(--ink);margin:10pt 0 4pt}
+.r-tip{break-inside:avoid;margin-top:12pt;padding:9pt 11pt;background:var(--tint-alt);border-radius:5pt;font-size:.92em;line-height:1.45}
+.r-tip .ui{display:block;font-size:7pt;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:3pt}
 .r-meta{font-size:8pt;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6pt 0 0}
 .r-grid{display:grid;grid-template-columns:minmax(0,36fr) minmax(0,64fr);gap:18pt;margin-top:14pt}
 .r-label{font-size:7.5pt;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:8pt}
@@ -347,12 +357,13 @@ export function backHtml(ctx: RenderCtx): string {
   const firstPara = sections
     .flatMap((s) => s.blocks)
     .find((b): b is Extract<Block, { type: 'paragraph' }> => b.type === 'paragraph' && b.text.split(' ').length > 12);
-  const blurb = firstPara ? truncateWords(firstPara.text, 42) : '[Back-cover blurb — written by the Writer agent]';
-  const bullets = sections
+  const copy = doc.backCover;
+  const blurb = copy?.blurb ?? (firstPara ? truncateWords(firstPara.text, 42) : '[Back-cover blurb — written by the Writer agent]');
+  const bullets = copy?.bullets?.length ? copy.bullets : sections
     .filter((s) => (s.kind === 'chapter' || s.kind === 'recipe') && !/^(introduction|how to use|welcome|thank you|resources|why )/i.test(s.title))
     .slice(0, 4)
     .map((s) => s.title);
-  const headline = doc.subtitle ?? doc.title;
+  const headline = copy?.headline ?? doc.subtitle ?? doc.title;
   const c = brand.colors;
   const check = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${t.colors.coverAccent}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
   const minis = ctx.catalog.slice(0, 3);

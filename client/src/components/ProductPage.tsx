@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { JobRecord, ProductRecord, Section } from '../../../shared/types';
+import type { JobRecord, ProductRecord, Section, SectionWriteResult } from '../../../shared/types';
 import { api } from '../api';
 import { LicenseBadge, StatusBadge, TypeBadge } from './badges';
 import { BlockView } from './BlockView';
 import { LicenseGate } from './LicenseGate';
 import { IngestReportPanel } from './IngestReportPanel';
 import { AuthorPanel } from './AuthorPanel';
+import { WriterPanel } from './WriterPanel';
 
 export function ProductPage({ id }: { id: string }) {
   const [p, setP] = useState<ProductRecord | null>(null);
@@ -95,9 +96,16 @@ export function ProductPage({ id }: { id: string }) {
         <div className="jobbar" role="status" aria-live="polite">
           <div className="jobbar-top">
             <span>
-              <strong>{active.kind === 'ingest' ? 'Ingesting' : 'Rendering'}</strong> · {active.message || 'Queued'}
+              <strong>{active.kind === 'ingest' ? 'Ingesting' : active.kind === 'write' ? 'Writing' : 'Rendering'}</strong> · {active.message || 'Queued'}
             </span>
-            <span>{active.progress}%</span>
+            <span className="row-gap">
+              {active.progress}%
+              {active.kind === 'write' && (
+                <button type="button" className="link-btn" onClick={() => void run(() => api.cancelJob(active.id), 'Stopping after the sections in progress finish.')}>
+                  Stop
+                </button>
+              )}
+            </span>
           </div>
           <div className="track">
             <div className="fill" style={{ width: `${Math.max(3, active.progress)}%` }} />
@@ -124,10 +132,24 @@ export function ProductPage({ id }: { id: string }) {
       <div className="p-grid">
         <aside className="p-side">
           <LicenseGate p={p} onChange={setP} onError={setError} />
+          {doc && <WriterPanel p={p} busy={Boolean(active)} onStarted={() => void load()} onChange={setP} onError={setError} />}
           <AuthorPanel p={p} onChange={setP} onError={setError} />
           {p.ingestReport && <IngestReportPanel report={p.ingestReport} />}
         </aside>
-        <section className="p-content">{doc ? <StructureViewer sections={doc.deliverables.flatMap((d) => d.sections)} /> : <p className="muted">Structure appears here when ingest finishes.</p>}</section>
+        <section className="p-content">
+          {doc ? (
+            <StructureViewer
+              productId={p.id}
+              sections={doc.deliverables.flatMap((d) => d.sections)}
+              draft={p.draft ? p.draft.deliverables.flatMap((d) => d.sections) : null}
+              results={p.writerReport?.sections ?? []}
+              onChange={setP}
+              onError={setError}
+            />
+          ) : (
+            <p className="muted">Structure appears here when ingest finishes.</p>
+          )}
+        </section>
       </div>
     </div>
   );
@@ -136,21 +158,42 @@ export function ProductPage({ id }: { id: string }) {
 function TitleEditor({ p, onSaved, onError }: { p: ProductRecord; onSaved: (p: ProductRecord) => void; onError: (m: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(p.title);
-  const [subtitle, setSubtitle] = useState(p.document?.subtitle ?? '');
+  const doc = p.draft ?? p.document;
+  const [subtitle, setSubtitle] = useState(doc?.subtitle ?? '');
   useEffect(() => {
     setTitle(p.title);
-    setSubtitle(p.document?.subtitle ?? '');
-  }, [p.title, p.document?.subtitle]);
+    setSubtitle(doc?.subtitle ?? '');
+  }, [p.title, doc?.subtitle]);
 
   if (!editing) {
     return (
       <div>
         <h1 className="p-title">{p.title}</h1>
-        {p.document?.subtitle && <div className="p-sub">{p.document.subtitle}</div>}
+        {doc?.subtitle && <div className="p-sub">{doc.subtitle}</div>}
         {p.document && (
           <button type="button" className="link-btn" onClick={() => setEditing(true)}>
             Edit title
           </button>
+        )}
+        {p.draft?.titleOptions && p.draft.titleOptions.length > 1 && (
+          <div className="title-opts">
+            <span className="small muted">Writer's title options:</span>
+            {p.draft.titleOptions.map((o, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`opt${o.title === p.title ? ' on' : ''}`}
+                onClick={() =>
+                  api
+                    .updateMeta(p.id, { title: o.title, subtitle: o.subtitle })
+                    .then(onSaved)
+                    .catch((er: Error) => onError(er.message))
+                }
+              >
+                <b>{o.title}</b> <span className="muted">{o.subtitle}</span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     );
@@ -189,56 +232,136 @@ function TitleEditor({ p, onSaved, onError }: { p: ProductRecord; onSaved: (p: P
   );
 }
 
-function StructureViewer({ sections }: { sections: Section[] }) {
+function StructureViewer({
+  productId,
+  sections,
+  draft,
+  results,
+  onChange,
+  onError,
+}: {
+  productId: string;
+  sections: Section[];
+  draft: Section[] | null;
+  results: SectionWriteResult[];
+  onChange: (p: ProductRecord) => void;
+  onError: (m: string) => void;
+}) {
   const [q, setQ] = useState('');
-  const [lowOnly, setLowOnly] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'low' | 'written' | 'flagged' | 'cut'>('all');
   const [sel, setSel] = useState<string | null>(null);
+  const [view, setView] = useState<'rewrite' | 'source'>('rewrite');
+  const resultBy = useMemo(() => new Map(results.map((r) => [r.sectionId, r])), [results]);
+  const draftBy = useMemo(() => new Map((draft ?? []).map((s) => [s.id, s])), [draft]);
+
   const shown = useMemo(
     () =>
-      sections.filter(
-        (s) => (!q || s.title.toLowerCase().includes(q.toLowerCase())) && (!lowOnly || (s.confidence < 0.7 && s.kind !== 'front')),
-      ),
-    [sections, q, lowOnly],
+      sections.filter((s) => {
+        if (q && !(s.title.toLowerCase().includes(q.toLowerCase()) || (draftBy.get(s.id)?.title ?? '').toLowerCase().includes(q.toLowerCase()))) return false;
+        const r = resultBy.get(s.id);
+        if (filter === 'low') return s.confidence < 0.7 && s.kind !== 'front';
+        if (filter === 'written') return r?.status === 'written';
+        if (filter === 'flagged') return r?.status === 'flagged' || r?.status === 'failed';
+        if (filter === 'cut') return r?.status === 'cut';
+        return true;
+      }),
+    [sections, q, filter, resultBy, draftBy],
   );
-  const current = sections.find((s) => s.id === sel) ?? shown.find((s) => s.kind !== 'front') ?? shown[0];
-  const lowCount = sections.filter((s) => s.confidence < 0.7 && s.kind !== 'front').length;
+  const src = sections.find((s) => s.id === sel) ?? shown.find((s) => s.kind !== 'front') ?? shown[0];
+  const rewritten = src ? draftBy.get(src.id) : undefined;
+  const result = src ? resultBy.get(src.id) : undefined;
+  const hasRewrite = Boolean(result && (result.status === 'written' || result.status === 'flagged') && rewritten);
+  const showing = view === 'rewrite' && hasRewrite ? rewritten! : src;
+  const n = (st: string) => results.filter((r) => r.status === st).length;
 
   return (
     <div className="viewer">
       <div className="viewer-nav">
         <div className="viewer-tools">
           <input type="search" placeholder={`Search ${sections.length} sections`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search sections" />
-          <label className="check">
-            <input type="checkbox" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} />
-            Needs review ({lowCount})
-          </label>
+          <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label="Filter sections">
+            <option value="all">All sections</option>
+            <option value="low">Needs structure review ({sections.filter((s) => s.confidence < 0.7 && s.kind !== 'front').length})</option>
+            {results.length > 0 && <option value="written">Rewritten ({n('written')})</option>}
+            {results.length > 0 && <option value="flagged">Flagged by Writer ({n('flagged') + n('failed')})</option>}
+            {results.length > 0 && <option value="cut">Cut ({n('cut')})</option>}
+          </select>
         </div>
         <ol className="sec-list">
-          {shown.map((s) => (
-            <li key={s.id}>
-              <button type="button" className={`sec-item${current?.id === s.id ? ' on' : ''}${s.kind === 'part' ? ' part' : ''}`} onClick={() => setSel(s.id)}>
-                <span className="sec-name">{s.title}</span>
-                <span className="sec-meta">
-                  {s.kind === 'front' ? 'old cover' : s.kind}
-                  {s.confidence < 0.7 && s.kind !== 'front' && <span className="dot warn" title="Low structure confidence" />}
-                </span>
-              </button>
-            </li>
-          ))}
+          {shown.map((s) => {
+            const r = resultBy.get(s.id);
+            return (
+              <li key={s.id}>
+                <button type="button" className={`sec-item${src?.id === s.id ? ' on' : ''}${s.kind === 'part' ? ' part' : ''}${r?.status === 'cut' ? ' cut' : ''}`} onClick={() => setSel(s.id)}>
+                  <span className="sec-name">{draftBy.get(s.id) && r && r.status !== 'cut' ? draftBy.get(s.id)!.title : s.title}</span>
+                  <span className="sec-meta">
+                    {s.kind === 'front' ? 'old cover' : s.kind}
+                    {r && <span className={`wstat ${r.status}`}>{r.status}</span>}
+                    {s.confidence < 0.7 && s.kind !== 'front' && <span className="dot warn" title="Low structure confidence" />}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       </div>
       <article className="viewer-body">
-        {current ? (
+        {src && showing ? (
           <>
             <div className="vb-head">
               <div className="small muted">
-                {current.kind === 'front' ? 'Original cover — replaced by the Empire Maker cover at render' : `${current.kind} · source page${current.source.pages.length > 1 ? 's' : ''} ${current.source.pages.join(', ')}`}
+                {src.kind === 'front' ? 'Original cover — replaced by the Empire Maker cover at render' : `${src.kind} · source page${src.source.pages.length > 1 ? 's' : ''} ${src.source.pages.join(', ')}`}
               </div>
-              <div className={`conf ${current.confidence < 0.7 ? 'low' : ''}`}>Structure confidence {Math.round(current.confidence * 100)}%</div>
+              <div className="row-gap">
+                {hasRewrite && (
+                  <div className="seg small" role="tablist">
+                    <label className={view === 'rewrite' ? 'on' : ''}>
+                      <input type="radio" name="view" checked={view === 'rewrite'} onChange={() => setView('rewrite')} />
+                      Rewrite
+                    </label>
+                    <label className={view === 'source' ? 'on' : ''}>
+                      <input type="radio" name="view" checked={view === 'source'} onChange={() => setView('source')} />
+                      Source
+                    </label>
+                  </div>
+                )}
+                {!result && <div className={`conf ${src.confidence < 0.7 ? 'low' : ''}`}>Structure {Math.round(src.confidence * 100)}%</div>}
+              </div>
             </div>
-            <h2 className="vb-title">{current.title}</h2>
+            {result && (
+              <div className={`wr-box ${result.status}`}>
+                <div className="row-gap">
+                  <span className={`wstat ${result.status}`}>{result.status}</span>
+                  {result.transformation !== null && <span className="small">New wording {Math.round(result.transformation * 100)}%</span>}
+                  {result.attempts > 1 && <span className="small muted">{result.attempts} attempts</span>}
+                  {rewritten && (
+                    <label className="check small lock">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(rewritten.lockedByUser)}
+                        onChange={(e) =>
+                          api
+                            .lockSection(productId, src.id, e.target.checked)
+                            .then(onChange)
+                            .catch((er: Error) => onError(er.message))
+                        }
+                      />
+                      Lock (Writer won't overwrite)
+                    </label>
+                  )}
+                </div>
+                {result.notes.length > 0 && (
+                  <ul className="small">
+                    {result.notes.map((x, i) => (
+                      <li key={i}>{x}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <h2 className="vb-title">{showing.title}</h2>
             <div className="book">
-              {current.blocks.map((b) => (
+              {showing.blocks.map((b) => (
                 <BlockView key={b.id} b={b} />
               ))}
             </div>

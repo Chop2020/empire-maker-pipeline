@@ -5,11 +5,25 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import multer from 'multer';
 import { config } from './config.js';
 import { getDb } from './db/index.js';
-import { getJob, jobsForProduct, recoverJobs } from './jobs.js';
+import { cancelJob, getJob, jobsForProduct, recoverJobs } from './jobs.js';
+import {
+  createFromPresets,
+  deletePersona,
+  duplicatePersona,
+  getPersona,
+  listPersonas,
+  requestResearch,
+  seedPersonas,
+  updatePersona,
+} from './personas.js';
 import {
   HttpError,
   createFromUpload,
   deleteProduct,
+  discardDraft,
+  estimateWrite,
+  requestWrite,
+  setSectionLock,
   getProduct,
   listProducts,
   readRendered,
@@ -69,6 +83,13 @@ app.patch('/api/products/:id', wrap(async (req, res) => res.json(await updateMet
 app.patch('/api/products/:id/license', wrap(async (req, res) => res.json(await updateLicense(id(req), req.body ?? {}))));
 app.post('/api/products/:id/reingest', wrap(async (req, res) => res.status(202).json(await reingest(id(req)))));
 app.post('/api/products/:id/render', wrap(async (req, res) => res.status(202).json(await requestRender(id(req)))));
+app.post('/api/products/:id/write/estimate', wrap(async (req, res) => res.json(await estimateWrite(id(req), req.body ?? {}))));
+app.post('/api/products/:id/write', wrap(async (req, res) => res.status(202).json(await requestWrite(id(req), req.body ?? {}))));
+app.delete('/api/products/:id/draft', wrap(async (req, res) => res.json(await discardDraft(id(req)))));
+app.patch(
+  '/api/products/:id/sections/:sid/lock',
+  wrap(async (req, res) => res.json(await setSectionLock(id(req), String(req.params.sid), Boolean(req.body?.locked)))),
+);
 app.get('/api/products/:id/jobs', wrap(async (req, res) => res.json(await jobsForProduct(id(req)))));
 app.delete(
   '/api/products/:id',
@@ -98,6 +119,28 @@ app.get(
   }),
 );
 
+app.get('/api/personas', wrap(async (_req, res) => res.json(await listPersonas())));
+app.post('/api/personas', wrap(async (req, res) => res.status(201).json(await createFromPresets(req.body ?? {}))));
+app.post('/api/personas/research', wrap(async (req, res) => res.status(202).json(await requestResearch(req.body ?? {}))));
+app.get('/api/personas/:id', wrap(async (req, res) => res.json(await getPersona(id(req)))));
+app.patch('/api/personas/:id', wrap(async (req, res) => res.json(await updatePersona(id(req), req.body ?? {}))));
+app.post('/api/personas/:id/duplicate', wrap(async (req, res) => res.status(201).json(await duplicatePersona(id(req)))));
+app.delete(
+  '/api/personas/:id',
+  wrap(async (req, res) => {
+    await deletePersona(id(req));
+    res.status(204).end();
+  }),
+);
+
+app.post(
+  '/api/jobs/:id/cancel',
+  wrap(async (req, res) => {
+    cancelJob(id(req));
+    res.status(202).json({ ok: true });
+  }),
+);
+
 app.get(
   '/api/jobs/:id',
   wrap(async (req, res) => {
@@ -120,6 +163,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 async function start() {
   await getDb();
   await recoverJobs();
+  await seedPersonas();
 
   if (config.isProd) {
     const dist = path.join(root, 'dist', 'client');

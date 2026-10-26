@@ -3,6 +3,8 @@ import type { License, ProductStatus, ProductType } from '../../../shared/types'
 const STATUS: Record<ProductStatus, [string, string]> = {
   ingesting: ['Ingesting', 'run'],
   ingested: ['Ingested', 'ok'],
+  writing: ['Writing', 'run'],
+  written: ['Draft ready', 'ok'],
   rendering: ['Rendering', 'run'],
   rendered: ['PDF ready', 'gold'],
   failed: ['Failed', 'bad'],

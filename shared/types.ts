@@ -16,9 +16,11 @@ export type Block =
       id: string;
       type: 'recipe';
       title: string;
+      headnote?: string;
       meta?: { servings?: string; prepTime?: string; cookTime?: string };
       ingredients: string[];
       directions: string[];
+      tips?: string[]; // "Why it works", "Make it better"
     }
   | { id: string; type: 'checklist'; items: string[] }
   | { id: string; type: 'fillIn'; prompt: string; lines: number }
@@ -97,11 +99,96 @@ export interface IngestReport {
   durationMs: number;
 }
 
+export interface BackCoverCopy {
+  headline: string;
+  blurb: string;
+  bullets: string[];
+}
+
 export interface ProductDocument {
   title: string;
   subtitle: string | null;
   productType: ProductType;
   deliverables: Deliverable[];
+  backCover?: BackCoverCopy; // written by the Writer's rebrand pass
+  titleOptions?: { title: string; subtitle: string }[];
+}
+
+// ---------- personas & writer ----------
+
+export type PresetTone =
+  | 'informative'
+  | 'witty'
+  | 'casual'
+  | 'authoritative'
+  | 'motivational'
+  | 'story-driven'
+  | 'conversational'
+  | 'direct-response';
+
+export const PRESET_TONES: { id: PresetTone; label: string; hint: string }[] = [
+  { id: 'informative', label: 'Informative', hint: 'Clear, factual, explains the why' },
+  { id: 'witty', label: 'Witty', hint: 'Dry humor, punchlines, light irreverence' },
+  { id: 'casual', label: 'Casual', hint: 'Relaxed, plain words, contractions' },
+  { id: 'authoritative', label: 'Authoritative', hint: 'Confident expert, decisive advice' },
+  { id: 'motivational', label: 'Motivational', hint: 'Encouraging, momentum, you-can-do-this' },
+  { id: 'story-driven', label: 'Story-driven', hint: 'Scenes and examples carry the points' },
+  { id: 'conversational', label: 'Conversational', hint: 'Talks to the reader like a friend' },
+  { id: 'direct-response', label: 'Direct-response', hint: 'Benefit-led, persuasive, clear calls to action' },
+];
+
+export interface Persona {
+  id: string;
+  name: string;
+  description: string;
+  inspiration?: { note: string; source: string };
+  presets: PresetTone[];
+  sliders: { formality: number; humor: number; sentenceLength: number; readingLevel: number; opinion: number };
+  traits: Record<string, string>;
+  signatureMoves: string[];
+  bannedPhrases: string[];
+  rules: string[];
+  recipeFormat?: { headnote: string; steps: string; extras: string[] };
+  examples?: PersonaExample[];
+  builtIn?: boolean;
+}
+
+export interface PersonaExample {
+  mode: string;
+  source: unknown;
+  rewrite: unknown;
+}
+
+export type ConvenienceMode = 'upgrade' | 'keep' | 'cut';
+
+export interface WriterSettings {
+  personaId: string;
+  convenience: ConvenienceMode; // recipes built on canned soup / seasoning packets
+  scope: 'all' | 'beef'; // 'beef' cuts recipes that aren't beef (keeps sauces/rubs/marinades made for steak)
+  sectionIds?: string[]; // limit to these sections
+  limit?: number; // sample run: first N content sections
+  minTransformation: number; // 0..1 — share of the rewrite that must be new wording
+}
+
+export interface SectionWriteResult {
+  sectionId: string;
+  title: string;
+  status: 'written' | 'flagged' | 'skipped' | 'cut' | 'failed';
+  transformation: number | null; // 0..1
+  bannedHits: string[];
+  attempts: number;
+  notes: string[];
+}
+
+export interface WriterReport {
+  personaId: string;
+  personaName: string;
+  settings: WriterSettings;
+  startedAt: string;
+  finishedAt: string;
+  sections: SectionWriteResult[];
+  avgTransformation: number | null;
+  usage: { inputTokens: number; outputTokens: number; cacheReadTokens: number; calls: number };
 }
 
 export interface PublisherBrand {
@@ -112,7 +199,7 @@ export interface PublisherBrand {
   font: string;
 }
 
-export type ProductStatus = 'ingesting' | 'ingested' | 'rendering' | 'rendered' | 'failed';
+export type ProductStatus = 'ingesting' | 'ingested' | 'writing' | 'written' | 'rendering' | 'rendered' | 'failed';
 
 export interface ProductSummary {
   id: string;
@@ -128,6 +215,8 @@ export interface ProductSummary {
 
 export interface ProductRecord extends ProductSummary {
   document: ProductDocument | null;
+  draft: ProductDocument | null; // Writer output; rendered instead of the source when present
+  writerReport: WriterReport | null;
   license: License;
   ingestReport: IngestReport | null;
   authorPenName: string | null;
@@ -136,8 +225,9 @@ export interface ProductRecord extends ProductSummary {
 
 export interface JobRecord {
   id: string;
-  productId: string;
-  kind: 'ingest' | 'render';
+  productId: string | null;
+  kind: 'ingest' | 'render' | 'write' | 'persona';
+  result?: unknown;
   status: 'queued' | 'running' | 'done' | 'failed';
   progress: number;
   message: string;

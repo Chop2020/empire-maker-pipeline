@@ -68,6 +68,8 @@ export function BlockView({ b }: { b: Block }) {
       );
     case 'recipe':
       return (
+        <>
+        {b.headnote && <p className="bk-headnote">{b.headnote}</p>}
         <div className="bk-recipe">
           <div>
             <div className="bk-label">Ingredients</div>
@@ -86,8 +88,14 @@ export function BlockView({ b }: { b: Block }) {
                 <li key={k}>{d}</li>
               ))}
             </ol>
+            {(b.tips ?? []).map((t, k) => (
+              <div key={k} className="bk-tip">
+                {t}
+              </div>
+            ))}
           </div>
         </div>
+        </>
       );
     case 'fillIn':
       return (

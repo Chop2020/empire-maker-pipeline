@@ -35,6 +35,12 @@ export const config = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? null,
   ingestModel: process.env.INGEST_MODEL ?? 'claude-sonnet-5-5',
   reviewModel: process.env.REVIEW_MODEL ?? 'claude-haiku-5-5',
+  writerModel: process.env.WRITER_MODEL ?? 'claude-sonnet-5-5',
+  personaModel: process.env.PERSONA_MODEL ?? 'claude-sonnet-5-5',
+  writerConcurrency: num(process.env.WRITER_CONCURRENCY, 4),
+  // Optional: $ per million tokens, to show dollar estimates before a Writer run
+  priceInPerMTok: process.env.PRICE_IN_PER_MTOK ? Number(process.env.PRICE_IN_PER_MTOK) : null,
+  priceOutPerMTok: process.env.PRICE_OUT_PER_MTOK ? Number(process.env.PRICE_OUT_PER_MTOK) : null,
   refineMaxSections: num(process.env.REFINE_MAX_SECTIONS, 40),
   refineBelowConfidence: num(process.env.REFINE_BELOW_CONFIDENCE, 0.7),
   chromePath: findChrome(),
