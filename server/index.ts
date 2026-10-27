@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
+import { installAuth } from './auth.js';
 import { config } from './config.js';
 import { getDb } from './db/index.js';
 import { cancelJob, getJob, jobsForProduct, recoverJobs } from './jobs.js';
@@ -40,17 +41,8 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '5mb' }));
 
-// Optional single-user password (Replit URLs are public). Browser shows its own login prompt.
-if (config.appPassword) {
-  app.use((req, res, next) => {
-    const h = req.headers.authorization ?? '';
-    const [, b64] = h.split(' ');
-    const pass = b64 ? Buffer.from(b64, 'base64').toString().split(':').slice(1).join(':') : '';
-    if (pass === config.appPassword) return next();
-    res.setHeader('WWW-Authenticate', 'Basic realm="Empire Maker Pipeline"');
-    res.status(401).send('Authentication required');
-  });
-}
+// Optional single-user password (Replit URLs are public): login page + cookie, works inside the preview iframe.
+installAuth(app, config.appPassword);
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 250 * 1024 * 1024 } });
 const wrap =
