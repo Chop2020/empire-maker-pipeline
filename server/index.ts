@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -153,6 +154,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 async function start() {
+  const server = http.createServer();
   await getDb();
   await recoverJobs();
   await seedPersonas();
@@ -165,11 +167,21 @@ async function start() {
   } else {
     // Vite in middleware mode: one process, one port — what Replit expects.
     const { createServer } = await import('vite');
-    const vite = await createServer({ root: path.join(root, 'client'), server: { middlewareMode: true }, appType: 'spa' });
+    // HMR rides on the app's own server/port: no extra port to collide with a leftover process.
+    const vite = await createServer({ root: path.join(root, 'client'), server: { middlewareMode: true, hmr: { server } }, appType: 'spa' });
     app.use(vite.middlewares);
   }
 
-  app.listen(config.port, '0.0.0.0', () => {
+  server.on('request', app);
+  server.on('error', (e: NodeJS.ErrnoException) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`\nPort ${config.port} is already in use — another copy of the app is running.`);
+      console.error('Stop it first (Shell: pkill -f "server/index.ts"), or just use the copy that is already running.\n');
+      process.exit(1);
+    }
+    throw e;
+  });
+  server.listen(config.port, '0.0.0.0', () => {
     console.log(`Empire Maker Pipeline on http://localhost:${config.port}`);
     console.log(`  db: ${config.databaseUrl ? 'postgres' : 'pglite (./data)'} · storage: ${config.storage} · chromium: ${config.chromePath ?? 'NOT FOUND'} · AI refine: ${config.anthropicApiKey ? 'on' : 'off'}`);
   });
