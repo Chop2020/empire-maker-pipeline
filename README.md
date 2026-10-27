@@ -14,7 +14,7 @@ Agents 1 and 3 (Analyst, Designer) plug in around the Writer. Every agent reads 
 ## Run it on Replit
 
 1. **Import:** Create Repl → Import from GitHub → `Chop2020/empire-maker-pipeline`. `.replit` and `replit.nix` set up Node 22, Postgres and Chromium.
-2. **Database:** add the **PostgreSQL** tool. Replit sets `DATABASE_URL` automatically. Without it, the app uses an embedded database in `./data`.
+2. **Database:** Replit provides PostgreSQL and sets `DATABASE_URL` automatically. No code changes are needed — the app connects on start (the Run console prints `db: postgres`). Without `DATABASE_URL` it falls back to an embedded database in `./data`.
 3. **Secrets** (padlock icon):
    - `APP_PASSWORD` — recommended. Replit URLs are public, so this adds a login prompt.
    - `ANTHROPIC_API_KEY` — optional. Turns on the Claude structure check and source review during ingest.
