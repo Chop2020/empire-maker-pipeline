@@ -1,5 +1,6 @@
 // Raw extraction: PDF → positioned text items → lines and segments per page.
 // Positions matter: they are how we tell columns, headings, callouts and tables apart.
+import '../../polyfills.js';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';

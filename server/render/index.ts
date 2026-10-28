@@ -1,6 +1,7 @@
 // Agent 4 (render half) — ProductDocument → print-ready PDF.
 // Three passes: body (numbered pages), front matter (cover, title, imprint, contents with real page numbers),
 // back cover (locked Empire Maker band). Merged into one PDF.
+import '../polyfills.js';
 import puppeteer, { type Browser } from 'puppeteer-core';
 import { PDFDocument } from 'pdf-lib';
 import QRCode from 'qrcode';
