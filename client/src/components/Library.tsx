@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProductSummary } from '../../../shared/types';
 import { api } from '../api';
-import { StatusBadge, TypeBadge, LicenseBadge } from './badges';
+import { StatusBadge, TypeBadge } from './badges';
 
 export function Library() {
   const [items, setItems] = useState<ProductSummary[] | null>(null);
@@ -43,7 +43,7 @@ export function Library() {
       <div className="lib-head">
         <div>
           <h1>Source library</h1>
-          <p className="muted">Upload PLR PDFs. Ingest strips the old branding, recovers the structure and checks the rights before anything gets rewritten.</p>
+          <p className="muted">Upload source PDFs. Ingest strips the old branding and recovers the structure, ready for the Writer.</p>
         </div>
       </div>
 
@@ -82,7 +82,6 @@ export function Library() {
                 <th>Title</th>
                 <th>Type</th>
                 <th>Status</th>
-                <th>Rights</th>
                 <th>Updated</th>
               </tr>
             </thead>
@@ -100,9 +99,6 @@ export function Library() {
                   </td>
                   <td>
                     <StatusBadge status={p.status} />
-                  </td>
-                  <td>
-                    <LicenseBadge status={p.licenseStatus} />
                   </td>
                   <td className="muted small nowrap">{new Date(p.updatedAt).toLocaleString()}</td>
                 </tr>

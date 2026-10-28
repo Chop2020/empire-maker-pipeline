@@ -34,7 +34,6 @@ export function WriterPanel({ p, busy, onStarted, onChange, onError }: { p: Prod
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, p.id, p.document]);
 
-  const confirmed = p.license.status === 'confirmed';
   const isCookbook = p.productType === 'cookbook';
   const rep = p.writerReport;
   const count = (s: string) => rep?.sections.filter((x) => x.status === s).length ?? 0;
@@ -45,8 +44,7 @@ export function WriterPanel({ p, busy, onStarted, onChange, onError }: { p: Prod
         <h3>Writer</h3>
         {p.draft && <span className="badge gold">Draft</span>}
       </div>
-      {!confirmed && <p className="small muted">Confirm the rights first.</p>}
-      <fieldset disabled={!confirmed || busy} className="writer-form">
+      <fieldset disabled={busy} className="writer-form">
         <label className="field">
           <span>Persona</span>
           <select value={personaId} onChange={(e) => setPersonaId(e.target.value)}>
@@ -109,7 +107,7 @@ export function WriterPanel({ p, busy, onStarted, onChange, onError }: { p: Prod
       <button
         type="button"
         className="btn primary block"
-        disabled={!confirmed || busy || !personaId || (est !== null && !est.aiReady)}
+        disabled={busy || !personaId || (est !== null && !est.aiReady)}
         onClick={() => api.write(p.id, settings).then(onStarted).catch((e: Error) => onError(e.message))}
       >
         {p.draft ? 'Write (adds to draft)' : 'Write'}

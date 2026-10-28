@@ -159,24 +159,12 @@ export function scanSource(
   };
   const licPages = allPages.filter((p) => licScore(p) >= 5);
   if (licPages.length) {
+    // Kept for reference only (no gate): any rights/terms pages found in the source.
     license.status = 'detected';
     license.rawTerms = licPages
       .map((p) => p.lines.map((l) => l.text).join('\n'))
       .join('\n\n')
       .slice(0, 8000);
-    flags.push({
-      kind: 'license-missing',
-      severity: 'warn',
-      message: `License terms detected on page(s) ${licPages.map((p) => p.page).join(', ')} — review and confirm the rights before rewriting.`,
-      pages: licPages.map((p) => p.page),
-    });
-  } else {
-    flags.push({
-      kind: 'license-missing',
-      severity: 'block',
-      message:
-        'No license/rights terms found in this file. Confirm you hold PLR rights (edit, rebrand, claim authorship, sell as a finished product) before this product moves past ingest.',
-    });
   }
 
   const sellerNorms = sellerList.map((s) => s.toLowerCase());

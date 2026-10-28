@@ -168,7 +168,6 @@ export async function updateLicense(id: string, body: Partial<License> & { confi
 export async function requestRender(id: string) {
   const r = await row(id);
   if (!r.document) throw new HttpError(409, 'Ingest has not finished for this product.');
-  assertRights(r);
   return enqueue(id, 'render');
 }
 
@@ -261,12 +260,6 @@ registerHandler('render', async (job, progress) => {
 
 // ---------- Writer (Agent 2) ----------
 
-function assertRights(r: Row) {
-  if ((r.license ?? emptyLicense()).status !== 'confirmed') {
-    throw new HttpError(409, 'Confirm the PLR rights for this source before it moves past ingest.');
-  }
-}
-
 function settingsFrom(body: Partial<WriterSettings>): WriterSettings {
   if (!body.personaId) throw new HttpError(400, 'Pick a persona.');
   const convenience: ConvenienceMode = body.convenience === 'keep' || body.convenience === 'cut' ? body.convenience : 'upgrade';
@@ -297,7 +290,6 @@ export async function estimateWrite(id: string, body: Partial<WriterSettings>) {
 export async function requestWrite(id: string, body: Partial<WriterSettings>) {
   const r = await row(id);
   if (!r.document) throw new HttpError(409, 'Ingest has not finished for this product.');
-  assertRights(r);
   const settings = settingsFrom(body);
   await getPersona(settings.personaId);
   if (!config.anthropicApiKey) throw new HttpError(409, 'ANTHROPIC_API_KEY is not set — add it in Replit Secrets to use the AI agents.');

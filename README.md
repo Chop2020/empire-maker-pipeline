@@ -3,7 +3,7 @@
 PLR source → finished Empire Maker Publishing product. This repo covers **Milestone 1 (ingest + render)** and **Milestone 2 (personas + Writer)**.
 
 ```
-Upload PLR PDF → Agent 0 Ingest → rights gate → Agent 2 Writer → review → Render → branded PDF
+Upload PDF → Agent 0 Ingest → Agent 2 Writer → review → Render → branded PDF
                  (structure, junk                (persona voice,   (source vs   (cover, imprint,
                   stripping, flags)               copy check,       rewrite,     contents, body,
                                                   scope, rebrand)   locks)       locked back cover)
@@ -48,8 +48,7 @@ npm run render -- data/cli/book.json data/cli/book.pdf    # JSON → branded PDF
 | Extract | pdf.js text with positions, font sizes and bold, plus mojibake repair (`Campbell'sВ®` → `Campbell's®`) |
 | Clean | Detects and drops TOC pages (keeping the entries), running headers/footers, page numbers and the old cover |
 | Structure | Headings, parts, paragraphs, bullet/numbered lists, callouts (`QUICK TIPS`, `PROMPTS`, `EXAMPLE`…), tables (incl. wrapped cells), recipes (two-column or stacked, wrapped ingredient lines, sub-groups like `MARINADE:`) |
-| Flags | Seller branding and URLs (stripped), trademarks, old copyright, AI-content disclosure, community-recipe-site naming (copied source), missing license |
-| Rights gate | Nothing renders until you confirm: edit, rebrand, claim authorship, sell as a finished product |
+| Flags | Seller branding and URLs (stripped), trademarks, old copyright, AI-content disclosure, community-recipe-site naming (copied source) |
 | AI refine (optional) | Claude repairs low-confidence sections without changing wording. Capped by `REFINE_MAX_SECTIONS` |
 
 ## Personas (Milestone 2)
@@ -64,7 +63,7 @@ Built-ins are read-only — **Duplicate** to customize.
 
 ## Writer (Milestone 2)
 
-On a product page (after rights are confirmed), the **Writer** card sets:
+On a product page, the **Writer** card sets:
 
 | Setting | What it does |
 |---|---|
@@ -98,8 +97,8 @@ shared/types.ts                 document model (the contract between agents)
 server/agents/ingest/           Agent 0: extract → layout → structure/recipes → classify → refine
 server/render/                  templates, themes, brand assets, HTML→PDF
 server/publisher.ts             locked Empire Maker brand
-server/products.ts, jobs.ts     product records, job queue, rights gate
-client/                         React UI (library, product review, rights, author)
+server/products.ts, jobs.ts     product records, job queue
+client/                         React UI (library, product review, author)
 scripts/                        CLI ingest/render, dev helpers
 ```
 

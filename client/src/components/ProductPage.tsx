@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JobRecord, ProductRecord, Section, SectionWriteResult } from '../../../shared/types';
 import { api } from '../api';
-import { LicenseBadge, StatusBadge, TypeBadge } from './badges';
+import { StatusBadge, TypeBadge } from './badges';
 import { BlockView } from './BlockView';
-import { LicenseGate } from './LicenseGate';
 import { IngestReportPanel } from './IngestReportPanel';
 import { AuthorPanel } from './AuthorPanel';
 import { WriterPanel } from './WriterPanel';
@@ -52,7 +51,7 @@ export function ProductPage({ id }: { id: string }) {
   if (!p) return <div className="page-pad">{error ? <div className="alert error">{error}</div> : <p className="muted">Loading…</p>}</div>;
 
   const doc = p.document;
-  const canRender = Boolean(doc) && p.license.status === 'confirmed' && !active;
+  const canRender = Boolean(doc) && !active;
 
   return (
     <div className="product">
@@ -65,7 +64,6 @@ export function ProductPage({ id }: { id: string }) {
           <div className="p-badges">
             <TypeBadge type={p.productType} />
             <StatusBadge status={p.status} />
-            <LicenseBadge status={p.license.status} />
             <a className="muted small" href={api.sourceUrl(p.id)} target="_blank" rel="noreferrer">
               Source: {p.sourceFileName}
             </a>
@@ -79,7 +77,6 @@ export function ProductPage({ id }: { id: string }) {
             type="button"
             className="btn primary"
             disabled={!canRender}
-            title={p.license.status !== 'confirmed' ? 'Confirm the PLR rights first' : undefined}
             onClick={() => void run(() => api.render(p.id), 'Render started.')}
           >
             {p.renderFileKey ? 'Re-render PDF' : 'Render PDF'}
@@ -131,7 +128,6 @@ export function ProductPage({ id }: { id: string }) {
 
       <div className="p-grid">
         <aside className="p-side">
-          <LicenseGate p={p} onChange={setP} onError={setError} />
           {doc && <WriterPanel p={p} busy={Boolean(active)} onStarted={() => void load()} onChange={setP} onError={setError} />}
           <AuthorPanel p={p} onChange={setP} onError={setError} />
           {p.ingestReport && <IngestReportPanel report={p.ingestReport} />}
