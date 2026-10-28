@@ -1,4 +1,4 @@
-import type { JobRecord, License, Persona, PresetTone, ProductRecord, ProductSummary, WriterSettings } from '../../shared/types';
+import type { ImageRequest, JobRecord, License, Persona, PresetTone, ProductRecord, ProductSummary, WriterSettings } from '../../shared/types';
 
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -26,6 +26,7 @@ export interface Health {
   ok: boolean;
   chrome: boolean;
   ai: boolean;
+  images: boolean;
   storage: string;
   db: string;
 }
@@ -42,6 +43,20 @@ export interface WriteEstimate {
   usd: number | null;
   model: string;
   aiReady: boolean;
+}
+
+export interface ImagePlan {
+  ready: boolean;
+  provider: string;
+  model: string;
+  directorReady: boolean;
+  recipes: { total: number; done: number };
+  openers: { total: number; done: number };
+  cover: boolean;
+  heroUsd: number;
+  pageUsd: number;
+  spentUsd: number;
+  usingDraft: boolean;
 }
 
 export const api = {
@@ -74,6 +89,12 @@ export const api = {
   duplicatePersona: (pid: string) => req<Persona>(`/api/personas/${pid}/duplicate`, { method: 'POST' }),
   deletePersona: (pid: string) => req<void>(`/api/personas/${pid}`, { method: 'DELETE' }),
   researchPersona: (body: { authorName?: string; samples?: string; notes?: string }) => req<JobRecord>('/api/personas/research', json('POST', body)),
+  imagePlan: (id: string) => req<ImagePlan>(`/api/products/${id}/images/plan`),
+  generateImages: (id: string, body: ImageRequest) => req<JobRecord>(`/api/products/${id}/images`, json('POST', body)),
+  setImageStyle: (id: string, body: { presetId?: string; text?: string }) => req<ProductRecord>(`/api/products/${id}/images/style`, json('PATCH', body)),
+  approveImage: (id: string, slot: string, approved: boolean) => req<ProductRecord>(`/api/products/${id}/images/${slot}`, json('PATCH', { approved })),
+  removeImage: (id: string, slot: string) => req<ProductRecord>(`/api/products/${id}/images/${slot}`, { method: 'DELETE' }),
+  imageUrl: (id: string, slot: string, v: number, full = false) => `/api/products/${id}/images/${slot}/file?v=${v}${full ? '&full=1' : ''}`,
   downloadUrl: (id: string, inline = false) => `/api/products/${id}/download${inline ? '?inline=1' : ''}`,
   sourceUrl: (id: string) => `/api/products/${id}/source`,
 };

@@ -18,6 +18,7 @@ Agents 1 and 3 (Analyst, Designer) plug in around the Writer. Every agent reads 
 3. **Secrets** (padlock icon):
    - `APP_PASSWORD` — recommended. Replit URLs are public, so this adds a login prompt.
    - `ANTHROPIC_API_KEY` — optional. Turns on the Claude structure check and source review during ingest.
+   - `BFL_API_KEY` — optional. Turns on AI photos (FLUX.2 [pro] from Black Forest Labs, bfl.ai).
    - `STORAGE=replit` — set this before deploying. It needs the **Object Storage** tool added; then run `npm i @replit/object-storage`. Deployed filesystems don't persist.
 4. **Run:** press **Run**. One process serves the API and the UI on port 3000.
 5. **Deploy:** use a **Reserved VM** deployment (already configured). Renders take a while on big books, and a VM keeps the process alive.
@@ -81,6 +82,18 @@ Render uses the draft when there is one, the ingested source otherwise.
 
 Offline checks (no API key): `tsx scripts/dev/writer-mock.ts <ingest.json> <out.pdf> 20` runs the whole Writer pipeline with a fake model and renders the result; `tsx scripts/dev/check-scope.ts <ingest.json>` lists what the beef-only rule keeps and cuts.
 
+## Images
+
+The **Images** card on a product page makes the photos; the **Images** tab is the review gallery.
+
+1. **Photo style:** one style per book (Dark & moody steakhouse, Bright & rustic, Backyard live fire, or your own wording). It is added to every prompt, so the whole book looks like one photo shoot.
+2. **Image Director (Claude)** reads each recipe — the cut, how it's cooked and served, the real ingredients — and writes the shot: angle, doneness, garnish from the recipe's own ingredients, appetite cues. No invented sides, no people, no text.
+3. **FLUX.2 [pro]** makes the photo (~2 MP for recipe heroes, ~3.3 MP full-page for the cover and chapter openers). Roughly 5¢ a recipe photo and 7¢ a full page; the real cost is tracked per product.
+4. **Review:** Approve, Redo, or Edit prompt and redo. Always start with the cover and a 5-recipe sample before running all recipes.
+5. **Render** puts the cover photo full-bleed behind the title, a hero photo across the top of each recipe, and a full-page photo on part openers. The PDF gets a compressed copy (~150–250 KB a photo); the full-resolution originals are kept for print editions.
+
+Generated images are stored under `images/<product>/` in storage. Without `BFL_API_KEY` set, `IMAGE_PROVIDER=mock` draws placeholders so layouts can be checked offline.
+
 ## What render produces
 
 - **Front:** typographic cover (placeholder until the Designer agent), title page, Empire Maker imprint/copyright page, contents with real page numbers
@@ -105,5 +118,5 @@ scripts/                        CLI ingest/render, dev helpers
 ## Next milestones
 
 3. Analyst agent (Upgrade Brief, chapter grouping, duplicates) + Product Bible for 300+ page sources
-4. Template library + Designer agent (real covers, image slots)
+4. Template library + Designer agent
 5. Factory mode: batch queue, thresholds, spot-check review

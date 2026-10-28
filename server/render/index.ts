@@ -2,6 +2,10 @@
 // Three passes: body (numbered pages), front matter (cover, title, imprint, contents with real page numbers),
 // back cover (locked Empire Maker band). Merged into one PDF.
 import '../polyfills.js';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import puppeteer, { type Browser } from 'puppeteer-core';
 import { PDFDocument } from 'pdf-lib';
 import QRCode from 'qrcode';
@@ -19,6 +23,7 @@ export interface RenderInput {
   authorName: string | null;
   authorShortBio: string | null;
   catalog: CatalogItem[];
+  images?: Record<string, { data: Buffer; alt: string }>; // slot ('cover' or section id) → compressed JPEG
 }
 
 export type RenderProgress = (pct: number, message: string) => void;
@@ -36,10 +41,13 @@ export async function launchBrowser(): Promise<Browser> {
   });
 }
 
-async function htmlToPdf(browser: Browser, html: string, opts: { footer: boolean; outline?: boolean }) {
+// Pages load from a temp folder (file://) so images are referenced by path instead of inlined — keeps memory sane with hundreds of photos.
+async function htmlToPdf(browser: Browser, html: string, opts: { footer: boolean; outline?: boolean; dir: string; name: string }) {
   const page = await browser.newPage();
   try {
-    await page.setContent(html, { waitUntil: 'load', timeout: 0 });
+    const file = path.join(opts.dir, `${opts.name}.html`);
+    await fs.writeFile(file, html);
+    await page.goto(pathToFileURL(file).href, { waitUntil: 'load', timeout: 0 });
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
     const pdf = await page.pdf({
       preferCSSPageSize: true,
@@ -100,13 +108,21 @@ export async function renderProduct(input: RenderInput, progress: RenderProgress
     catalog: input.catalog,
     qrSvg,
     year: new Date().getFullYear(),
+    images: {},
   };
+
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'emp-render-'));
+  for (const [slot, img] of Object.entries(input.images ?? {})) {
+    const name = `img-${slot.replace(/[^a-z0-9_-]/gi, '_')}.jpg`;
+    await fs.writeFile(path.join(dir, name), img.data);
+    ctx.images[slot] = { src: name, alt: img.alt };
+  }
 
   progress(5, 'Starting renderer');
   const browser = await launchBrowser();
   try {
     progress(10, 'Laying out the body pages');
-    const body = await htmlToPdf(browser, bodyHtml(ctx), { footer: true, outline: true });
+    const body = await htmlToPdf(browser, bodyHtml(ctx), { footer: true, outline: true, dir, name: 'body' });
 
     progress(60, 'Building contents with page numbers');
     const toc = tocEntries(input.doc);
@@ -116,10 +132,10 @@ export async function renderProduct(input: RenderInput, progress: RenderProgress
     } catch {
       /* contents without page numbers is acceptable */
     }
-    const front = await htmlToPdf(browser, frontHtml(ctx, toc), { footer: false });
+    const front = await htmlToPdf(browser, frontHtml(ctx, toc), { footer: false, dir, name: 'front' });
 
     progress(80, 'Rendering back cover');
-    const back = await htmlToPdf(browser, backHtml(ctx), { footer: false });
+    const back = await htmlToPdf(browser, backHtml(ctx), { footer: false, dir, name: 'back' });
 
     progress(90, 'Assembling PDF');
     const out = await PDFDocument.create();
@@ -138,5 +154,6 @@ export async function renderProduct(input: RenderInput, progress: RenderProgress
     return { pdf: Buffer.from(bytes), pages: out.getPageCount() };
   } finally {
     await browser.close();
+    await fs.rm(dir, { recursive: true, force: true });
   }
 }

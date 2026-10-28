@@ -19,7 +19,10 @@ export interface RenderCtx {
   catalog: CatalogItem[];
   qrSvg: string;
   year: number;
+  images: Record<string, { src: string; alt: string }>; // slot ('cover' | section id) → file next to the page
 }
+
+const imgTag = (cls: string, i: { src: string; alt: string }) => `<img class="${cls}" src="${esc(i.src)}" alt="${esc(i.alt)}">`;
 
 export const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -122,6 +125,18 @@ export function bodyHtml(ctx: RenderCtx): string {
         const [label, ...rest] = s.title.split(' — ');
         const title = rest.length ? rest.join(' — ') : s.title;
         const kicker = rest.length ? label : `Part ${partNo}`;
+        const img = ctx.images[s.id];
+        if (img) {
+          return `<section class="part photo" id="${s.id}">
+          ${imgTag('op-img', img)}<div class="op-shade"></div>
+          <div class="op-top">
+            <div class="part-kicker ui">${esc(kicker)}</div>
+            <h1 class="sec-title part-title">${esc(title)}</h1>
+            <div class="part-rule"></div>
+          </div>
+          ${s.blocks.length ? `<div class="op-text">${s.blocks.map(blockHtml).join('')}</div>` : ''}
+        </section>`;
+        }
         return `<section class="part" id="${s.id}">
           <div class="part-inner">
             <div class="part-kicker ui">${esc(kicker)}</div>
@@ -134,13 +149,17 @@ export function bodyHtml(ctx: RenderCtx): string {
       if (s.kind === 'recipe') {
         const r = s.blocks[0];
         const rest = s.blocks.slice(1);
-        return `<section class="recipe" id="${s.id}">
+        const img = ctx.images[s.id];
+        return `<section class="recipe${img ? ' has-hero' : ''}" id="${s.id}">
+          ${img ? imgTag('r-hero', img) : ''}
           <h1 class="sec-title recipe-title">${esc(s.title)}</h1>
           ${r?.type === 'recipe' ? blockHtml(r) : ''}${rest.map(blockHtml).join('')}
         </section>`;
       }
       chapterNo++;
+      const img = ctx.images[s.id];
       return `<section class="chapter" id="${s.id}">
+        ${img ? imgTag('ch-hero', img) : ''}
         <div class="ch-kicker ui">Chapter ${chapterNo}</div>
         <h1 class="sec-title ch-title">${esc(s.title)}</h1>
         <div class="ch-rule"></div>
@@ -163,6 +182,16 @@ ${baseCss(t)}
 .part-title{font-size:${t.trim.w >= 8 ? 36 : 30}pt;font-weight:700;margin-top:10pt;letter-spacing:-.015em}
 .part-rule{width:60pt;height:3pt;background:var(--accent);margin:16pt 0}
 .part p{font-size:12pt;color:var(--muted);font-style:italic;max-width:85%}
+.part.photo{position:relative;overflow:hidden;border-radius:4pt;flex-direction:column;align-items:stretch;justify-content:space-between;padding:0.55in 0.5in;color:#fff;background:#111}
+.op-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.op-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,9,7,.86) 0%,rgba(12,9,7,.5) 30%,rgba(12,9,7,0) 52%,rgba(12,9,7,0) 66%,rgba(12,9,7,.82) 100%)}
+.op-top,.op-text{position:relative}
+.part.photo .part-title{color:#fff;text-shadow:0 1pt 12pt rgba(0,0,0,.35)}
+.part.photo .part-kicker{color:var(--cover-accent)}
+.part.photo .part-rule{background:var(--cover-accent)}
+.part.photo .op-text p{color:rgba(255,255,255,.92);font-style:italic;max-width:90%}
+.r-hero,.ch-hero{display:block;width:100%;height:${t.trim.w >= 8 ? 3.5 : 2.7}in;object-fit:cover;border-radius:3pt;margin:0 0 16pt;break-after:avoid}
+.ch-hero{height:${t.trim.w >= 8 ? 4.2 : 3.2}in}
 .bh{margin:1.1em 0 .45em}
 .bh1{font-size:15pt}.bh2{font-size:13pt}.bh3{font-family:${t.fonts.ui};font-size:9.5pt;font-weight:700;letter-spacing:.02em}
 ul.lst,ol.lst{margin:0 0 .8em;padding-left:1.25em}
@@ -291,6 +320,11 @@ ${baseCss(t)}
 .cover h1{color:var(--cover-ink);font-size:${t.trim.w >= 8 ? 46 : 38}pt;font-weight:700;line-height:1.05;letter-spacing:-.02em;margin-top:14pt}
 .cover .rule{width:56pt;height:3pt;background:var(--cover-accent);margin:20pt 0}
 .cover .sub{text-wrap:balance;font-size:${t.trim.w >= 8 ? 15 : 13}pt;line-height:1.4;opacity:.88;max-width:88%}
+.cover.photo{background:#0d0a08}
+.cover.photo > *{position:relative}
+.cover.photo > .cv-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cover.photo > .cv-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,8,6,.9) 0%,rgba(10,8,6,.62) 28%,rgba(10,8,6,0) 50%,rgba(10,8,6,0) 68%,rgba(10,8,6,.9) 100%)}
+.cover.photo h1{text-shadow:0 2pt 18pt rgba(0,0,0,.4)}
 .cover .author{margin-top:auto;font-family:${t.fonts.ui};font-size:11pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
 .cover .pub{display:flex;align-items:center;gap:10pt;margin-top:18pt;padding-top:14pt;border-top:.75pt solid rgba(255,255,255,.18)}
 .cover .pub img.m{height:26pt}.cover .pub img.w{height:12pt}
@@ -315,7 +349,8 @@ ${baseCss(t)}
 .toc .toc-part .ui{font-size:7pt;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent-ink);margin-right:6pt}
 .toc .toc-part .pg{margin-left:auto}
 </style></head><body>
-<section class="page cover">
+<section class="page cover${ctx.images.cover ? ' photo' : ''}">
+  ${ctx.images.cover ? `${imgTag('cv-img', ctx.images.cover)}<div class="cv-shade"></div>` : ''}
   <div class="kick">${esc(isCookbook ? 'The cookbook' : doc.productType === 'workbook' ? 'The workbook' : 'The guide')}</div>
   <h1>${esc(doc.title)}</h1>
   <div class="rule"></div>

@@ -37,6 +37,8 @@ import {
   updateMeta,
 } from './products.js';
 import { EMPIRE_MAKER } from './publisher.js';
+import { imagePlan, readImage, removeImage, requestImages, setImageApproved, setImageStyle } from './images.js';
+import { imagesReady } from './agents/images/provider.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const app = express();
@@ -54,7 +56,7 @@ const wrap =
 const id = (req: Request) => String(req.params.id);
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, chrome: Boolean(config.chromePath), ai: Boolean(config.anthropicApiKey), storage: config.storage, db: config.databaseUrl ? 'postgres' : 'pglite' });
+  res.json({ ok: true, chrome: Boolean(config.chromePath), ai: Boolean(config.anthropicApiKey), images: imagesReady(), storage: config.storage, db: config.databaseUrl ? 'postgres' : 'pglite' });
 });
 
 app.get('/api/publisher', (_req, res) => {
@@ -84,6 +86,40 @@ app.patch(
   '/api/products/:id/sections/:sid/lock',
   wrap(async (req, res) => res.json(await setSectionLock(id(req), String(req.params.sid), Boolean(req.body?.locked)))),
 );
+// Images
+app.get('/api/products/:id/images/plan', wrap(async (req, res) => res.json(await imagePlan(id(req)))));
+app.post('/api/products/:id/images', wrap(async (req, res) => res.status(202).json(await requestImages(id(req), req.body ?? {}))));
+app.patch(
+  '/api/products/:id/images/style',
+  wrap(async (req, res) => {
+    await setImageStyle(id(req), req.body ?? {});
+    res.json(await getProduct(id(req)));
+  }),
+);
+app.patch(
+  '/api/products/:id/images/:slot',
+  wrap(async (req, res) => {
+    await setImageApproved(id(req), String(req.params.slot), Boolean(req.body?.approved));
+    res.json(await getProduct(id(req)));
+  }),
+);
+app.delete(
+  '/api/products/:id/images/:slot',
+  wrap(async (req, res) => {
+    await removeImage(id(req), String(req.params.slot));
+    res.json(await getProduct(id(req)));
+  }),
+);
+app.get(
+  '/api/products/:id/images/:slot/file',
+  wrap(async (req, res) => {
+    const data = await readImage(id(req), String(req.params.slot), req.query.full === '1');
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable'); // URLs carry ?v=<version>
+    res.send(data);
+  }),
+);
+
 app.get('/api/products/:id/jobs', wrap(async (req, res) => res.json(await jobsForProduct(id(req)))));
 app.delete(
   '/api/products/:id',
@@ -184,7 +220,7 @@ async function start() {
   });
   server.listen(config.port, '0.0.0.0', () => {
     console.log(`Empire Maker Pipeline on http://localhost:${config.port}`);
-    console.log(`  db: ${config.databaseUrl ? 'postgres' : 'pglite (./data)'} · storage: ${config.storage} · chromium: ${config.chromePath ?? 'NOT FOUND'} · AI refine: ${config.anthropicApiKey ? 'on' : 'off'}`);
+    console.log(`  db: ${config.databaseUrl ? 'postgres' : 'pglite (./data)'} · storage: ${config.storage} · chromium: ${config.chromePath ?? 'NOT FOUND'} · AI refine: ${config.anthropicApiKey ? 'on' : 'off'} · images: ${imagesReady() ? config.imageProvider : 'off (no BFL_API_KEY)'}`);
   });
 }
 

@@ -38,11 +38,12 @@ export function App() {
           </a>
         </nav>
         <div className="topbar-right">
-          <span className="pipeline-label">PLR Pipeline · Milestone 2</span>
+          <span className="pipeline-label">PLR Pipeline</span>
           {health && (
             <span className="health" title={`Database: ${health.db} · Storage: ${health.storage}`}>
               <span className={health.chrome ? 'dot ok' : 'dot bad'} /> Renderer
               <span className={health.ai ? 'dot ok' : 'dot off'} /> AI agents
+              <span className={health.images ? 'dot ok' : 'dot off'} /> Images
             </span>
           )}
         </div>

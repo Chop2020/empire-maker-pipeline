@@ -239,3 +239,25 @@ select { border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 
 .preset.on { border-color: var(--black); background: #fafaf8; }
 .preset input { margin-top: 3px; accent-color: var(--black); width: 16px; height: 16px; }
 .preset span { display: grid; gap: 1px; }
+
+/* ---------- images ---------- */
+.img-actions { display: grid; gap: 8px; margin-top: 12px; }
+.img-actions .btn { justify-content: space-between; }
+.content-tabs { margin-bottom: 12px; }
+.vb-hero { display: block; width: 100%; max-width: 720px; aspect-ratio: 1.94; object-fit: cover; border-radius: 6px; margin: 12px 0 0; }
+.gallery-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.gallery-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.gcard { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); display: flex; flex-direction: column; }
+.gcard.approved { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+.gimg { display: block; background: #1b1714; aspect-ratio: 1.94; }
+.gcard.cover .gimg, .gcard.opener .gimg { aspect-ratio: 4 / 5; }
+.gimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.failed-box { display: flex; align-items: center; justify-content: center; padding: 14px; color: #f3c9c3; font-size: 12.5px; text-align: center; }
+.gcard figcaption { padding: 10px 12px 12px; display: grid; gap: 6px; }
+.gtitle { font-weight: 600; font-size: 13.5px; line-height: 1.35; }
+.gkind { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); margin-right: 6px; }
+.gbtns { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.danger-link { color: var(--bad); }
+.gallery-empty { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
+.gallery { align-items: start; }

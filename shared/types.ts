@@ -199,7 +199,77 @@ export interface PublisherBrand {
   font: string;
 }
 
-export type ProductStatus = 'ingesting' | 'ingested' | 'writing' | 'written' | 'rendering' | 'rendered' | 'failed';
+// ---------- images (Image Director + image model) ----------
+
+export type ImageSlotKind = 'cover' | 'hero' | 'opener';
+
+export interface ImageAsset {
+  slot: string; // 'cover' or a section id
+  kind: ImageSlotKind;
+  title: string; // what it shows (section title)
+  status: 'ready' | 'approved' | 'failed';
+  prompt: string; // the shot description; the style bible is appended when it is sent to the image model
+  alt: string;
+  key: string | null; // full-resolution original (print)
+  webKey: string | null; // compressed copy used in the PDF
+  width: number;
+  height: number;
+  seed: number | null;
+  model: string;
+  costUsd: number | null;
+  error?: string;
+  version: number;
+  createdAt: string;
+}
+
+export interface ImageStyle {
+  presetId: string;
+  text: string; // the style bible: appended to every prompt so the whole book looks like one shoot
+}
+
+export interface ProductImages {
+  style: ImageStyle;
+  items: Record<string, ImageAsset>;
+  spentUsd: number;
+}
+
+export const IMAGE_STYLE_PRESETS: { id: string; label: string; text: string }[] = [
+  {
+    id: 'steakhouse',
+    label: 'Dark & moody steakhouse',
+    text:
+      'Editorial cookbook food photography with a dark, moody steakhouse look: charcoal slate, seasoned cast iron, worn end-grain butcher block, dark linen. ' +
+      'One warm key light from the side, like late-afternoon window light, with deep soft shadows and rich warm color. ' +
+      'Shallow depth of field with crisp focus on the most appetizing part of the food; the food fills most of the frame. ' +
+      'Glistening juices, deeply browned crust, visible texture, a wisp of steam. Natural, slightly imperfect styling: flaky salt, a few crumbs, a drip of sauce. ' +
+      'Shot on a full-frame camera with a 100mm macro lens at f/2.8. Photorealistic. No people, no hands, no text, no logos, no packaging.',
+  },
+  {
+    id: 'rustic-bright',
+    label: 'Bright & rustic',
+    text:
+      'Editorial cookbook food photography, bright and rustic: soft natural daylight, pale weathered wood, cream stoneware, white enamel, linen napkins. ' +
+      'Airy but warm, true-to-life color, gentle shadows. Shallow depth of field; the food fills most of the frame and looks freshly made, glossy and juicy. ' +
+      'Fresh herb garnish for color contrast, natural imperfect styling. Photorealistic, 100mm lens at f/3.2. No people, no hands, no text, no logos, no packaging.',
+  },
+  {
+    id: 'live-fire',
+    label: 'Backyard live fire',
+    text:
+      'Outdoor live-fire cooking photography at dusk: glowing hardwood coals, cast-iron grates, smoke drifting through warm backlight, rough wooden boards. ' +
+      'High contrast, amber firelight, deep shadows, sizzling fat and char marks. Shallow depth of field; the food is the hero and fills most of the frame. ' +
+      'Photorealistic, 85mm lens at f/2.5. No people, no hands, no text, no logos, no packaging.',
+  },
+];
+
+export interface ImageRequest {
+  target: 'cover' | 'sample' | 'recipes' | 'openers' | 'slot';
+  slot?: string; // target 'slot'
+  limit?: number; // target 'sample'
+  prompt?: string; // target 'slot': use this prompt instead of asking the Image Director
+}
+
+export type ProductStatus ='ingesting' | 'ingested' | 'writing' | 'written' | 'rendering' | 'rendered' | 'failed';
 
 export interface ProductSummary {
   id: string;
@@ -217,6 +287,7 @@ export interface ProductRecord extends ProductSummary {
   document: ProductDocument | null;
   draft: ProductDocument | null; // Writer output; rendered instead of the source when present
   writerReport: WriterReport | null;
+  images: ProductImages | null;
   license: License;
   ingestReport: IngestReport | null;
   authorPenName: string | null;
@@ -226,7 +297,7 @@ export interface ProductRecord extends ProductSummary {
 export interface JobRecord {
   id: string;
   productId: string | null;
-  kind: 'ingest' | 'render' | 'write' | 'persona';
+  kind: 'ingest' | 'render' | 'write' | 'persona' | 'images';
   result?: unknown;
   status: 'queued' | 'running' | 'done' | 'failed';
   progress: number;

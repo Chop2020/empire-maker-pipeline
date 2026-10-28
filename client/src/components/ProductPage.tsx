@@ -6,12 +6,15 @@ import { BlockView } from './BlockView';
 import { IngestReportPanel } from './IngestReportPanel';
 import { AuthorPanel } from './AuthorPanel';
 import { WriterPanel } from './WriterPanel';
+import { ImagesPanel } from './ImagesPanel';
+import { ImageGallery } from './ImageGallery';
 
 export function ProductPage({ id }: { id: string }) {
   const [p, setP] = useState<ProductRecord | null>(null);
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [tab, setTab] = useState<'sections' | 'images'>('sections');
 
   const load = useCallback(async () => {
     try {
@@ -93,12 +96,12 @@ export function ProductPage({ id }: { id: string }) {
         <div className="jobbar" role="status" aria-live="polite">
           <div className="jobbar-top">
             <span>
-              <strong>{active.kind === 'ingest' ? 'Ingesting' : active.kind === 'write' ? 'Writing' : 'Rendering'}</strong> · {active.message || 'Queued'}
+              <strong>{active.kind === 'ingest' ? 'Ingesting' : active.kind === 'write' ? 'Writing' : active.kind === 'images' ? 'Generating images' : 'Rendering'}</strong> · {active.message || 'Queued'}
             </span>
             <span className="row-gap">
               {active.progress}%
-              {active.kind === 'write' && (
-                <button type="button" className="link-btn" onClick={() => void run(() => api.cancelJob(active.id), 'Stopping after the sections in progress finish.')}>
+              {(active.kind === 'write' || active.kind === 'images') && (
+                <button type="button" className="link-btn" onClick={() => void run(() => api.cancelJob(active.id), active.kind === 'images' ? 'Stopping after the images in progress finish.' : 'Stopping after the sections in progress finish.')}>
                   Stop
                 </button>
               )}
@@ -129,12 +132,28 @@ export function ProductPage({ id }: { id: string }) {
       <div className="p-grid">
         <aside className="p-side">
           {doc && <WriterPanel p={p} busy={Boolean(active)} onStarted={() => void load()} onChange={setP} onError={setError} />}
+          {doc && <ImagesPanel p={p} busy={Boolean(active)} onStarted={() => (setTab('images'), void load())} onChange={setP} onError={setError} />}
           <AuthorPanel p={p} onChange={setP} onError={setError} />
           {p.ingestReport && <IngestReportPanel report={p.ingestReport} />}
         </aside>
         <section className="p-content">
-          {doc ? (
+          {doc && (
+            <div className="seg content-tabs" role="tablist" aria-label="View">
+              <label className={tab === 'sections' ? 'on' : ''}>
+                <input type="radio" name="ptab" checked={tab === 'sections'} onChange={() => setTab('sections')} />
+                Sections
+              </label>
+              <label className={tab === 'images' ? 'on' : ''}>
+                <input type="radio" name="ptab" checked={tab === 'images'} onChange={() => setTab('images')} />
+                Images ({Object.values(p.images?.items ?? {}).filter((a) => a.webKey).length})
+              </label>
+            </div>
+          )}
+          {doc && tab === 'images' ? (
+            <ImageGallery p={p} busy={Boolean(active)} onStarted={() => void load()} onChange={setP} onError={setError} />
+          ) : doc ? (
             <StructureViewer
+              images={p.images}
               productId={p.id}
               sections={doc.deliverables.flatMap((d) => d.sections)}
               draft={p.draft ? p.draft.deliverables.flatMap((d) => d.sections) : null}
@@ -229,6 +248,7 @@ function TitleEditor({ p, onSaved, onError }: { p: ProductRecord; onSaved: (p: P
 }
 
 function StructureViewer({
+  images,
   productId,
   sections,
   draft,
@@ -236,6 +256,7 @@ function StructureViewer({
   onChange,
   onError,
 }: {
+  images: ProductRecord['images'];
   productId: string;
   sections: Section[];
   draft: Section[] | null;
@@ -354,6 +375,9 @@ function StructureViewer({
                   </ul>
                 )}
               </div>
+            )}
+            {images?.items[src.id]?.webKey && (
+              <img className="vb-hero" src={api.imageUrl(productId, src.id, images.items[src.id].version)} alt={images.items[src.id].alt} />
             )}
             <h2 className="vb-title">{showing.title}</h2>
             <div className="book">

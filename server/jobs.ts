@@ -10,7 +10,7 @@ export type JobProgress = (pct: number, message: string) => Promise<void>;
 type Handler = (job: JobRecord & { payload: Record<string, unknown> }, progress: JobProgress) => Promise<unknown>;
 
 const handlers = new Map<JobRecord['kind'], Handler>();
-const LANE: Record<JobRecord['kind'], 'fast' | 'ai'> = { ingest: 'fast', render: 'fast', write: 'ai', persona: 'ai' };
+const LANE: Record<JobRecord['kind'], 'fast' | 'ai'> = { ingest: 'fast', render: 'fast', write: 'ai', persona: 'ai', images: 'ai' };
 const queues: Record<'fast' | 'ai', string[]> = { fast: [], ai: [] };
 const running: Record<'fast' | 'ai', boolean> = { fast: false, ai: false };
 const cancelled = new Set<string>();

@@ -41,6 +41,12 @@ export const config = {
   // Optional: $ per million tokens, to show dollar estimates before a Writer run
   priceInPerMTok: process.env.PRICE_IN_PER_MTOK ? Number(process.env.PRICE_IN_PER_MTOK) : null,
   priceOutPerMTok: process.env.PRICE_OUT_PER_MTOK ? Number(process.env.PRICE_OUT_PER_MTOK) : null,
+  // Images: FLUX.2 by Black Forest Labs (bfl.ai). IMAGE_PROVIDER=mock draws placeholders for offline tests.
+  bflApiKey: process.env.BFL_API_KEY ?? null,
+  imageProvider: (process.env.IMAGE_PROVIDER ?? 'flux') as 'flux' | 'mock',
+  imageModel: process.env.IMAGE_MODEL ?? 'flux-2-pro',
+  imageDirectorModel: process.env.IMAGE_DIRECTOR_MODEL ?? 'claude-sonnet-5-5',
+  imageConcurrency: num(process.env.IMAGE_CONCURRENCY, 4),
   refineMaxSections: num(process.env.REFINE_MAX_SECTIONS, 40),
   refineBelowConfidence: num(process.env.REFINE_BELOW_CONFIDENCE, 0.7),
   chromePath: findChrome(),

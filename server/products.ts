@@ -8,6 +8,7 @@ import { estimateRun, writeProduct } from './agents/writer/index.js';
 import { config } from './config.js';
 import { enqueue, isCancelled, registerHandler } from './jobs.js';
 import { anthropicLlm } from './llm.js';
+import { imagesForRender } from './images.js';
 import { getPersona } from './personas.js';
 import { EMPIRE_MAKER } from './publisher.js';
 import { renderProduct } from './render/index.js';
@@ -48,6 +49,7 @@ async function record(r: Row): Promise<ProductRecord> {
     ingestReport: r.ingestReport ?? null,
     draft: r.draft ?? null,
     writerReport: r.writerReport ?? null,
+    images: r.images ?? null,
     authorPenName: a?.penName ?? null,
     authorShortBio: a?.shortBio ?? null,
   };
@@ -246,6 +248,7 @@ registerHandler('render', async (job, progress) => {
         authorName: author?.penName ?? null,
         authorShortBio: author?.shortBio ?? null,
         catalog,
+        images: await imagesForRender(r),
       },
       (pct, msg) => void progress(pct, msg),
     );
