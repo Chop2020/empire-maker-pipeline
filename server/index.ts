@@ -224,6 +224,11 @@ async function start() {
   });
 }
 
+// A stray async error in a background job must not kill the app (that shows up in the browser as "Failed to fetch").
+process.on('unhandledRejection', (e) => console.error('[unhandled rejection]', e));
+process.on('uncaughtException', (e) => console.error('[uncaught exception]', e));
+process.on('exit', (code) => console.error(`[server exiting with code ${code}]`));
+
 start().catch((e) => {
   console.error(e);
   process.exit(1);

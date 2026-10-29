@@ -72,7 +72,14 @@ async function pump(lane: 'fast' | 'ai') {
   if (running[lane]) return;
   running[lane] = true;
   try {
-    while (queues[lane].length) await runOne(queues[lane].shift()!);
+    while (queues[lane].length) {
+      const id = queues[lane].shift()!;
+      try {
+        await runOne(id);
+      } catch (e) {
+        console.error(`[job ${id}] runner error:`, e); // never let a job take the server down
+      }
+    }
   } finally {
     running[lane] = false;
   }
