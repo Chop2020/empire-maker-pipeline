@@ -39,6 +39,7 @@ import {
 import { EMPIRE_MAKER } from './publisher.js';
 import { imagePlan, readImage, removeImage, requestImages, setImageApproved, setImageStyle } from './images.js';
 import { imagesReady } from './agents/images/provider.js';
+import { fixClearance, getCleanup, runCleanup, setExcluded } from './cleanup.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const app = express();
@@ -86,6 +87,15 @@ app.patch(
   '/api/products/:id/sections/:sid/lock',
   wrap(async (req, res) => res.json(await setSectionLock(id(req), String(req.params.sid), Boolean(req.body?.locked)))),
 );
+// Clean-up: duplicates + clearance
+app.get('/api/products/:id/cleanup', wrap(async (req, res) => res.json(await getCleanup(id(req)))));
+app.post('/api/products/:id/cleanup/run', wrap(async (req, res) => res.json(await runCleanup(id(req)))));
+app.patch(
+  '/api/products/:id/cleanup/sections/:sid',
+  wrap(async (req, res) => res.json(await setExcluded(id(req), String(req.params.sid), Boolean(req.body?.excluded)))),
+);
+app.post('/api/products/:id/cleanup/fix', wrap(async (req, res) => res.status(202).json(await fixClearance(id(req)))));
+
 // Images
 app.get('/api/products/:id/images/plan', wrap(async (req, res) => res.json(await imagePlan(id(req)))));
 app.post('/api/products/:id/images', wrap(async (req, res) => res.status(202).json(await requestImages(id(req), req.body ?? {}))));

@@ -1,5 +1,5 @@
 import { integer, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
-import type { IngestReport, License, Persona, ProductDocument, ProductImages, PublisherBrand, WriterReport } from '../../shared/types.js';
+import type { IngestReport, License, Persona, ProductAnalysis, ProductDocument, ProductImages, PublisherBrand, WriterReport } from '../../shared/types.js';
 
 export const publishers = pgTable('publishers', {
   id: text('id').primaryKey(),
@@ -33,6 +33,7 @@ export const products = pgTable('products', {
   draft: jsonb('draft').$type<ProductDocument>(),
   writerReport: jsonb('writer_report').$type<WriterReport>(),
   images: jsonb('images').$type<ProductImages>(),
+  analysis: jsonb('analysis').$type<ProductAnalysis>(),
   renderFileKey: text('render_file_key'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -122,4 +123,6 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS payload jsonb;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS result jsonb;
 -- Images (idempotent)
 ALTER TABLE products ADD COLUMN IF NOT EXISTS images jsonb;
+-- Clean-up (idempotent)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS analysis jsonb;
 `;

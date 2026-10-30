@@ -261,3 +261,20 @@ select { border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 
 .danger-link { color: var(--bad); }
 .gallery-empty { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
 .gallery { align-items: start; }
+
+/* ---------- clean-up ---------- */
+.cu-block { padding: 10px 0; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+.cu-block:first-of-type { border-top: 0; padding-top: 0; }
+.cu-title { font-weight: 700; font-size: 13px; }
+.cu-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.cu-list li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 4px; background: var(--bg); }
+.cu-list li.high { background: var(--bad-bg); color: var(--bad); }
+.cu-note { margin: 8px 0 0; }
+.ok-text { color: var(--ok); font-weight: 600; }
+.cu-sec { border-radius: 6px; padding: 10px 12px; margin: 10px 0; font-size: 13px; }
+.cu-sec.removed { background: var(--bad-bg); color: var(--bad); }
+.cu-sec.issues { background: var(--warn-bg); color: var(--warn); }
+.cu-sec ul { margin: 6px 0 0; padding-left: 18px; }
+.sec-item.removed .sec-name { text-decoration: line-through; color: var(--muted); }
+.dot.risk { background: var(--bad); margin-left: 6px; }
+.proof-warn { color: #ffb4a8; font-weight: 600; margin-bottom: 4px; }

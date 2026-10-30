@@ -11,6 +11,7 @@ import { enqueue, isCancelled, registerHandler } from './jobs.js';
 import { anthropicLlm } from './llm.js';
 import { themeFor } from './render/theme.js';
 import { storage } from './storage.js';
+import { bookDoc } from './book.js';
 import { HttpError } from './util/http.js';
 
 type Row = typeof products.$inferSelect;
@@ -109,7 +110,7 @@ function pickTargets(doc: ProductDocument, imgs: ProductImages, req: ImageReques
 
 export async function imagePlan(id: string) {
   const r = await row(id);
-  const doc = r.draft ?? r.document;
+  const doc = bookDoc(r);
   if (!doc) throw new HttpError(409, 'Ingest has not finished for this product.');
   const imgs = imagesOf(r);
   const all = contentSections(doc);
@@ -136,7 +137,7 @@ export async function imagePlan(id: string) {
 
 export async function requestImages(id: string, body: Partial<ImageRequest>) {
   const r = await row(id);
-  const doc = r.draft ?? r.document;
+  const doc = bookDoc(r);
   if (!doc) throw new HttpError(409, 'Ingest has not finished for this product.');
   if (!imagesReady()) throw new HttpError(409, 'BFL_API_KEY is not set — add your Black Forest Labs API key in Replit Secrets, then restart the app.');
   const targets = ['cover', 'sample', 'recipes', 'openers', 'slot'];
@@ -226,7 +227,7 @@ registerHandler('images', async (job, progress) => {
   const id = job.productId!;
   const req = job.payload as unknown as ImageRequest;
   const r = await row(id);
-  const doc = r.draft ?? r.document;
+  const doc = bookDoc(r);
   if (!doc) throw new Error('No document to illustrate.');
   const imgs = imagesOf(r);
   const targets = pickTargets(doc, imgs, req);

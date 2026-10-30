@@ -1,4 +1,4 @@
-import type { ImageRequest, JobRecord, License, Persona, PresetTone, ProductRecord, ProductSummary, WriterSettings } from '../../shared/types';
+import type { ClearanceReport, ImageRequest, JobRecord, License, ProductAnalysis, Persona, PresetTone, ProductRecord, ProductSummary, WriterSettings } from '../../shared/types';
 
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -59,6 +59,13 @@ export interface ImagePlan {
   usingDraft: boolean;
 }
 
+export interface Cleanup {
+  analysis: ProductAnalysis;
+  clearance: ClearanceReport;
+  outOfScope: number;
+  fix: { sections: number; usd: number | null; personaId: string | null };
+}
+
 export const api = {
   health: () => req<Health>('/api/health'),
   products: () => req<ProductSummary[]>('/api/products'),
@@ -89,6 +96,10 @@ export const api = {
   duplicatePersona: (pid: string) => req<Persona>(`/api/personas/${pid}/duplicate`, { method: 'POST' }),
   deletePersona: (pid: string) => req<void>(`/api/personas/${pid}`, { method: 'DELETE' }),
   researchPersona: (body: { authorName?: string; samples?: string; notes?: string }) => req<JobRecord>('/api/personas/research', json('POST', body)),
+  cleanup: (id: string) => req<Cleanup>(`/api/products/${id}/cleanup`),
+  runCleanup: (id: string) => req<Cleanup>(`/api/products/${id}/cleanup/run`, { method: 'POST' }),
+  setExcluded: (id: string, sid: string, excluded: boolean) => req<Cleanup>(`/api/products/${id}/cleanup/sections/${sid}`, json('PATCH', { excluded })),
+  fixCleanup: (id: string) => req<JobRecord>(`/api/products/${id}/cleanup/fix`, { method: 'POST' }),
   imagePlan: (id: string) => req<ImagePlan>(`/api/products/${id}/images/plan`),
   generateImages: (id: string, body: ImageRequest) => req<JobRecord>(`/api/products/${id}/images`, json('POST', body)),
   setImageStyle: (id: string, body: { presetId?: string; text?: string }) => req<ProductRecord>(`/api/products/${id}/images/style`, json('PATCH', body)),

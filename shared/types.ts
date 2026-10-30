@@ -199,6 +199,68 @@ export interface PublisherBrand {
   font: string;
 }
 
+// ---------- clean-up: duplicates + clearance ----------
+
+export interface DuplicateGroup {
+  id: string;
+  kind: 'duplicate' | 'same-name'; // duplicate = same recipe; same-name = different recipes sharing a name
+  sectionIds: string[];
+  keepId: string; // the copy that stays (duplicate groups)
+  similarity: number; // 0..1 ingredient overlap
+  titles: string[];
+}
+
+export interface Exclusion {
+  reason: 'duplicate' | 'user';
+  keptId?: string;
+  note: string;
+}
+
+export interface ProductAnalysis {
+  ranAt: string;
+  groups: DuplicateGroup[];
+  excluded: Record<string, Exclusion>; // section id → why it is out of the book
+  restored: string[]; // duplicates you chose to keep anyway (re-runs leave them in)
+}
+
+export type ClearanceKind =
+  | 'not-rewritten'
+  | 'low-new-wording'
+  | 'brand'
+  | 'sponsored-recipe'
+  | 'recipe-site-title'
+  | 'restaurant-or-chef'
+  | 'attribution'
+  | 'quote';
+
+export interface ClearanceItem {
+  sectionId: string;
+  title: string;
+  kind: ClearanceKind;
+  severity: 'high' | 'medium';
+  detail: string;
+}
+
+export interface ClearanceReport {
+  basis: 'draft' | 'source';
+  sections: number;
+  rewritten: number;
+  items: ClearanceItem[];
+  counts: Partial<Record<ClearanceKind, number>>;
+  ready: boolean; // no high-severity items left
+}
+
+export const CLEARANCE_LABELS: Record<ClearanceKind, string> = {
+  'not-rewritten': 'Still in the source wording',
+  'low-new-wording': 'Rewrite too close to the source',
+  brand: 'Brand / trademark names',
+  'sponsored-recipe': 'Brand name in the title',
+  'recipe-site-title': 'Recipe-site style title',
+  'restaurant-or-chef': 'Restaurant or chef name',
+  attribution: 'Credit / website mention',
+  quote: 'Quoted text',
+};
+
 // ---------- images (Image Director + image model) ----------
 
 export type ImageSlotKind = 'cover' | 'hero' | 'opener';
@@ -288,6 +350,7 @@ export interface ProductRecord extends ProductSummary {
   draft: ProductDocument | null; // Writer output; rendered instead of the source when present
   writerReport: WriterReport | null;
   images: ProductImages | null;
+  analysis: ProductAnalysis | null;
   license: License;
   ingestReport: IngestReport | null;
   authorPenName: string | null;

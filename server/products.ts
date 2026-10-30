@@ -9,6 +9,9 @@ import { config } from './config.js';
 import { enqueue, isCancelled, registerHandler } from './jobs.js';
 import { anthropicLlm } from './llm.js';
 import { imagesForRender } from './images.js';
+import { bookDoc, withoutExcluded } from './book.js';
+import { sameNameNotes } from './agents/analyst/duplicates.js';
+import { clearance, clearanceNotes } from './agents/analyst/clearance.js';
 import { getPersona } from './personas.js';
 import { EMPIRE_MAKER } from './publisher.js';
 import { renderProduct } from './render/index.js';
@@ -50,6 +53,7 @@ async function record(r: Row): Promise<ProductRecord> {
     draft: r.draft ?? null,
     writerReport: r.writerReport ?? null,
     images: r.images ?? null,
+    analysis: r.analysis ?? null,
     authorPenName: a?.penName ?? null,
     authorShortBio: a?.shortBio ?? null,
   };
@@ -243,7 +247,7 @@ registerHandler('render', async (job, progress) => {
     const out = await renderProduct(
       {
         productId: r.id,
-        doc: r.draft ?? r.document!,
+        doc: bookDoc(r)!,
         brand: pub?.brand ?? EMPIRE_MAKER.brand,
         authorName: author?.penName ?? null,
         authorShortBio: author?.shortBio ?? null,
@@ -282,7 +286,7 @@ export async function estimateWrite(id: string, body: Partial<WriterSettings>) {
   const settings = settingsFrom(body);
   const persona = await getPersona(settings.personaId);
   const [pub] = await (await getDb()).select().from(publishers).where(eq(publishers.id, r.publisherId));
-  const e = estimateRun(r.document, settings, persona, pub?.brand ?? EMPIRE_MAKER.brand);
+  const e = estimateRun(withoutExcluded(r.document, r.analysis), settings, persona, pub?.brand ?? EMPIRE_MAKER.brand);
   const usd =
     config.priceInPerMTok !== null && config.priceOutPerMTok !== null
       ? (e.inputTokens / 1e6) * config.priceInPerMTok + (e.outputTokens / 1e6) * config.priceOutPerMTok
@@ -324,12 +328,19 @@ registerHandler('write', async (job, progress) => {
   try {
     const persona = await getPersona(settings.personaId);
     const [pub] = await db.select().from(publishers).where(eq(publishers.id, r.publisherId));
+    // Clean-up: duplicates are out, same-name recipes get distinct titles, clearance risks get fixed in the rewrite.
+    const source = withoutExcluded(r.document!, r.analysis);
+    const notes: Record<string, string> = {};
+    const add = (m: Record<string, string>) => Object.entries(m).forEach(([k, v]) => (notes[k] = notes[k] ? `${notes[k]} ${v}` : v));
+    if (r.analysis) add(sameNameNotes(source, r.analysis.groups));
+    add(clearanceNotes(clearance(source, 'source', null, new Set())));
     const out = await writeProduct({
+      notes,
       llm: anthropicLlm(),
       persona,
       brand: pub?.brand ?? EMPIRE_MAKER.brand,
-      source: r.document!,
-      existingDraft: r.draft ?? null,
+      source,
+      existingDraft: r.draft ? withoutExcluded(r.draft, r.analysis) : null,
       settings,
       progress: (pct, msg) => progress(pct, msg),
       cancelled: () => isCancelled(job.id),

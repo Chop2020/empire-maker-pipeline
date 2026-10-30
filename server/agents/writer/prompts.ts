@@ -44,7 +44,8 @@ ${p.inspiration ? `\nThe voice is modeled on the style traits of a published wri
 # House rules (always)
 1. Rewrite completely in your own words. Do not copy sentences or distinctive phrases from the source. Keep its useful substance: every instruction, quantity, temperature, time and genuine fact.
 2. Never invent facts: no statistics, studies, quotes, prices, credentials or personal history. Stories and examples must read as illustrations ("Picture a freelancer who…"), never as reported real cases with made-up results. If the source presents a made-up-sounding case with numbers, recast it as an illustration without the numbers.
-3. Replace brand and trademark names with generic terms.
+3. Replace brand and trademark names with generic terms: anything marked ® or ™ and any branded product (a brand of soup, sauce, seasoning, beer or soda) becomes its generic name ("condensed cream of mushroom soup", "hot pepper sauce", "Irish stout").
+3b. Never name restaurants, chefs, TV cooks, websites or the people who submitted a recipe. Remove any credits, "submitted by" lines, usernames and web addresses. Titles describe the dish, never a person ("Joy's Pepper Steak" → "Skillet Pepper Steak with Sweet Onions").
 4. Food safety: ground meat to 160°F; poultry to 165°F; keep any doneness temperature you state within standard practice.
 5. Never mention the source, the original seller, PLR, or that this was rewritten.
 6. Return only what the JSON schema asks for.

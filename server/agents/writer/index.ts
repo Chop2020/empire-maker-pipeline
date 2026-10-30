@@ -35,6 +35,7 @@ export interface WriteOptions {
   progress: (pct: number, message: string) => void | Promise<void>;
   cancelled?: () => boolean;
   concurrency?: number;
+  notes?: Record<string, string>; // per-section instructions from Clean-up (distinct titles, clearance fixes)
 }
 
 export interface WriteOutput {
@@ -170,7 +171,7 @@ export async function writeProduct(o: WriteOptions): Promise<WriteOutput> {
           res.notes.push('Built on canned soup / seasoning packets — cut per settings.');
           cut.add(src.id);
         } else {
-          const out = await writeRecipe(o, system, model, r, convenience, minT, res, usage);
+          const out = await writeRecipe(o, system, model, r, convenience, minT, res, usage, o.notes?.[src.id]);
           replaceSection(draftSections, src, { ...src, title: out.title, blocks: [out, ...src.blocks.slice(1)] });
         }
       } else {
@@ -186,7 +187,10 @@ export async function writeProduct(o: WriteOptions): Promise<WriteOutput> {
     await o.progress(5 + (done / Math.max(1, targets.length)) * 85, `Writing — ${done} of ${targets.length}: ${src.title}`);
   });
 
-  draft.deliverables[0].sections = draftSections.filter((s) => !cut.has(s.id));
+  // Keep the book in source order (sections written for the first time are appended by replaceSection).
+  const srcOrder = new Map(o.source.deliverables.flatMap((d) => d.sections).map((s, i) => [s.id, i]));
+  draftSections.sort((a, b) => (srcOrder.get(a.id) ?? 1e9) - (srcOrder.get(b.id) ?? 1e9));
+  draft.deliverables[0].sections = draftSections.filter((s) => !cut.has(s.id) && srcOrder.has(s.id));
   draft.deliverables[0].sections.forEach((s, i) => (s.order = i));
 
   // Rebrand pass: title options and back-cover copy, from the (re)written outline.
@@ -263,6 +267,7 @@ async function writeRecipe(
   minT: number,
   res: SectionWriteResult,
   usage: ReturnType<typeof emptyUsage>,
+  note?: string,
 ): Promise<RecipeBlock> {
   const sourceText = r.directions.join(' ');
   const mode = !convenience
@@ -279,7 +284,7 @@ async function writeRecipe(
       maxTokens: 3000,
       schema: RECIPE_SCHEMA,
       prompt: `${mode}
-Give it a new descriptive title (no numbering like "II", no personal names). Ingredients: keep quantities accurate, one ingredient per line, generic names. Steps: numbered in the output array, each with a doneness cue where one applies. Tips: 0–2 items, each starting "Why it works:" or "Make it better:". changeNotes: what you changed for the publisher (1–3 short items).
+Give it a new descriptive title (no numbering like "II", no personal names, no brand, restaurant or chef names).${note ? `\nIMPORTANT: ${note}` : ''} Ingredients: keep quantities accurate, one ingredient per line, generic names. Steps: numbered in the output array, each with a doneness cue where one applies. Tips: 0–2 items, each starting "Why it works:" or "Make it better:". changeNotes: what you changed for the publisher (1–3 short items).
 ${feedback}
 SOURCE RECIPE:
 ${JSON.stringify({ title: r.title, ingredients: r.ingredients, directions: r.directions, meta: r.meta ?? null })}`,
@@ -334,7 +339,7 @@ async function writeSection(
       schema: SECTION_SCHEMA,
       prompt: `Rewrite this ${src.kind === 'part' ? 'part opener' : 'chapter'} of "${o.source.title}" in the house voice.
 Where it sits: ${idx > 0 ? `after "${outline[idx - 1]}"` : 'near the start'}${idx >= 0 && outline[idx + 1] ? `, before "${outline[idx + 1]}"` : ''}.
-Keep every useful idea, step, prompt and list item; you may reorder, merge or split for clarity, sharpen vague advice into concrete steps, and add one short callout if it genuinely helps. Keep callout labels short (e.g. "Quick Tips", "Try This Prompt"). Copy-paste prompts must stay usable prompts with their [placeholders]. Give the section a fresh title (max 9 words). changeNotes: 1–3 short items for the publisher.
+Keep every useful idea, step, prompt and list item; you may reorder, merge or split for clarity, sharpen vague advice into concrete steps, and add one short callout if it genuinely helps. Keep callout labels short (e.g. "Quick Tips", "Try This Prompt"). Copy-paste prompts must stay usable prompts with their [placeholders]. Give the section a fresh title (max 9 words). changeNotes: 1–3 short items for the publisher.${o.notes?.[src.id] ? `\nIMPORTANT: ${o.notes[src.id]}` : ''}
 ${src.kind === 'part' ? 'A part opener is short: one or two sentences that set up the part.' : ''}${feedback}
 SOURCE SECTION:
 ${JSON.stringify({ title: src.title, blocks: src.blocks })}`,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JobRecord, ProductRecord, Section, SectionWriteResult } from '../../../shared/types';
-import { api } from '../api';
+import { api, type Cleanup } from '../api';
+import { CleanupPanel } from './CleanupPanel';
 import { StatusBadge, TypeBadge } from './badges';
 import { BlockView } from './BlockView';
 import { IngestReportPanel } from './IngestReportPanel';
@@ -15,12 +16,15 @@ export function ProductPage({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<'sections' | 'images'>('sections');
+  const [cleanup, setCleanup] = useState<Cleanup | null>(null);
+  const [filter, setFilter] = useState<SecFilter>('all');
 
   const load = useCallback(async () => {
     try {
       const [prod, js] = await Promise.all([api.product(id), api.jobs(id)]);
       setP(prod);
       setJobs(js);
+      if (prod.document && !js.some((j) => j.status === 'running' || j.status === 'queued')) api.cleanup(id).then(setCleanup).catch(() => setCleanup(null));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -121,6 +125,11 @@ export function ProductPage({ id }: { id: string }) {
       {notice && !active && <div className="alert info">{notice}</div>}
       {p.renderFileKey && !active && (
         <div className="alert gold-alert">
+          {cleanup && !cleanup.clearance.ready && (
+            <div className="proof-warn">
+              Proof only — not ready to sell yet: {cleanup.clearance.items.filter((i) => i.severity === 'high').length} copyright/trademark risks open. See Clean-up.
+            </div>
+          )}
           PDF ready.{' '}
           <a href={api.downloadUrl(p.id, true)} target="_blank" rel="noreferrer">
             Open it in a new tab
@@ -131,6 +140,20 @@ export function ProductPage({ id }: { id: string }) {
 
       <div className="p-grid">
         <aside className="p-side">
+          {doc && (
+            <CleanupPanel
+              productId={p.id}
+              c={cleanup}
+              busy={Boolean(active)}
+              onChange={setCleanup}
+              onStarted={() => void load()}
+              onReview={(f) => {
+                setTab('sections');
+                setFilter(f);
+              }}
+              onError={setError}
+            />
+          )}
           {doc && <WriterPanel p={p} busy={Boolean(active)} onStarted={() => void load()} onChange={setP} onError={setError} />}
           {doc && <ImagesPanel p={p} busy={Boolean(active)} onStarted={() => (setTab('images'), void load())} onChange={setP} onError={setError} />}
           <AuthorPanel p={p} onChange={setP} onError={setError} />
@@ -153,6 +176,10 @@ export function ProductPage({ id }: { id: string }) {
             <ImageGallery p={p} busy={Boolean(active)} onStarted={() => void load()} onChange={setP} onError={setError} />
           ) : doc ? (
             <StructureViewer
+              cleanup={cleanup}
+              onCleanup={setCleanup}
+              filter={filter}
+              setFilter={setFilter}
               images={p.images}
               productId={p.id}
               sections={doc.deliverables.flatMap((d) => d.sections)}
@@ -247,7 +274,13 @@ function TitleEditor({ p, onSaved, onError }: { p: ProductRecord; onSaved: (p: P
   );
 }
 
+type SecFilter = 'all' | 'low' | 'written' | 'flagged' | 'cut' | 'removed' | 'issues';
+
 function StructureViewer({
+  cleanup,
+  onCleanup,
+  filter,
+  setFilter,
   images,
   productId,
   sections,
@@ -256,6 +289,10 @@ function StructureViewer({
   onChange,
   onError,
 }: {
+  cleanup: Cleanup | null;
+  onCleanup: (c: Cleanup) => void;
+  filter: SecFilter;
+  setFilter: (f: SecFilter) => void;
   images: ProductRecord['images'];
   productId: string;
   sections: Section[];
@@ -265,7 +302,12 @@ function StructureViewer({
   onError: (m: string) => void;
 }) {
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<'all' | 'low' | 'written' | 'flagged' | 'cut'>('all');
+  const excluded = cleanup?.analysis.excluded ?? {};
+  const issuesBy = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof cleanup>['clearance']['items']>();
+    for (const i of cleanup?.clearance.items ?? []) if (i.kind !== 'not-rewritten') m.set(i.sectionId, [...(m.get(i.sectionId) ?? []), i]);
+    return m;
+  }, [cleanup]);
   const [sel, setSel] = useState<string | null>(null);
   const [view, setView] = useState<'rewrite' | 'source'>('rewrite');
   const resultBy = useMemo(() => new Map(results.map((r) => [r.sectionId, r])), [results]);
@@ -280,9 +322,11 @@ function StructureViewer({
         if (filter === 'written') return r?.status === 'written';
         if (filter === 'flagged') return r?.status === 'flagged' || r?.status === 'failed';
         if (filter === 'cut') return r?.status === 'cut';
+        if (filter === 'removed') return Boolean(excluded[s.id]);
+        if (filter === 'issues') return issuesBy.has(s.id) && !excluded[s.id];
         return true;
       }),
-    [sections, q, filter, resultBy, draftBy],
+    [sections, q, filter, resultBy, draftBy, excluded, issuesBy],
   );
   const src = sections.find((s) => s.id === sel) ?? shown.find((s) => s.kind !== 'front') ?? shown[0];
   const rewritten = src ? draftBy.get(src.id) : undefined;
@@ -296,8 +340,10 @@ function StructureViewer({
       <div className="viewer-nav">
         <div className="viewer-tools">
           <input type="search" placeholder={`Search ${sections.length} sections`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search sections" />
-          <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label="Filter sections">
+          <select value={filter} onChange={(e) => setFilter(e.target.value as SecFilter)} aria-label="Filter sections">
             <option value="all">All sections</option>
+            {cleanup && <option value="issues">Brand / name / credit risks ({issuesBy.size})</option>}
+            {cleanup && <option value="removed">Removed — duplicates ({Object.keys(excluded).length})</option>}
             <option value="low">Needs structure review ({sections.filter((s) => s.confidence < 0.7 && s.kind !== 'front').length})</option>
             {results.length > 0 && <option value="written">Rewritten ({n('written')})</option>}
             {results.length > 0 && <option value="flagged">Flagged by Writer ({n('flagged') + n('failed')})</option>}
@@ -309,11 +355,12 @@ function StructureViewer({
             const r = resultBy.get(s.id);
             return (
               <li key={s.id}>
-                <button type="button" className={`sec-item${src?.id === s.id ? ' on' : ''}${s.kind === 'part' ? ' part' : ''}${r?.status === 'cut' ? ' cut' : ''}`} onClick={() => setSel(s.id)}>
+                <button type="button" className={`sec-item${src?.id === s.id ? ' on' : ''}${s.kind === 'part' ? ' part' : ''}${r?.status === 'cut' ? ' cut' : ''}${excluded[s.id] ? ' removed' : ''}`} onClick={() => setSel(s.id)}>
                   <span className="sec-name">{draftBy.get(s.id) && r && r.status !== 'cut' ? draftBy.get(s.id)!.title : s.title}</span>
                   <span className="sec-meta">
                     {s.kind === 'front' ? 'old cover' : s.kind}
-                    {r && <span className={`wstat ${r.status}`}>{r.status}</span>}
+                    {excluded[s.id] ? <span className="wstat cut">removed</span> : r && <span className={`wstat ${r.status}`}>{r.status}</span>}
+                    {!excluded[s.id] && issuesBy.get(s.id)?.some((i) => i.severity === 'high' && i.kind !== 'not-rewritten') && <span className="dot risk" title="Copyright/trademark risk" />}
                     {s.confidence < 0.7 && s.kind !== 'front' && <span className="dot warn" title="Low structure confidence" />}
                   </span>
                 </button>
@@ -343,8 +390,33 @@ function StructureViewer({
                   </div>
                 )}
                 {!result && <div className={`conf ${src.confidence < 0.7 ? 'low' : ''}`}>Structure {Math.round(src.confidence * 100)}%</div>}
+                {cleanup && !excluded[src.id] && src.kind !== 'front' && (
+                  <button type="button" className="link-btn small danger-link" onClick={() => api.setExcluded(productId, src.id, true).then(onCleanup).catch((er: Error) => onError(er.message))}>
+                    Remove from book
+                  </button>
+                )}
               </div>
             </div>
+            {excluded[src.id] && (
+              <div className="cu-sec removed">
+                <b>Removed from the book.</b> {excluded[src.id].note}.{' '}
+                <button type="button" className="link-btn" onClick={() => api.setExcluded(productId, src.id, false).then(onCleanup).catch((er: Error) => onError(er.message))}>
+                  Put it back
+                </button>
+              </div>
+            )}
+            {!excluded[src.id] && (issuesBy.get(src.id) ?? []).filter((i) => i.kind !== 'not-rewritten').length > 0 && (
+              <div className="cu-sec issues">
+                <b>Copyright/trademark risks</b>
+                <ul>
+                  {(issuesBy.get(src.id) ?? [])
+                    .filter((i) => i.kind !== 'not-rewritten')
+                    .map((i, k) => (
+                      <li key={k}>{i.detail}</li>
+                    ))}
+                </ul>
+              </div>
+            )}
             {result && (
               <div className={`wr-box ${result.status}`}>
                 <div className="row-gap">

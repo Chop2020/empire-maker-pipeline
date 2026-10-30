@@ -82,6 +82,17 @@ Render uses the draft when there is one, the ingested source otherwise.
 
 Offline checks (no API key): `tsx scripts/dev/writer-mock.ts <ingest.json> <out.pdf> 20` runs the whole Writer pipeline with a fake model and renders the result; `tsx scripts/dev/check-scope.ts <ingest.json>` lists what the beef-only rule keeps and cuts.
 
+## Clean-up (duplicates + copyright/trademark risks)
+
+The **Clean-up** card runs automatically once ingest finishes.
+
+- **Duplicates:** recipes with the same name and ≥70% the same ingredients, or any name and ≥85%, are the same recipe. The fullest copy stays; the rest are removed from the Writer, the images and the PDF. Use **Review** to check them and **Put it back** to keep one anyway. Recipes that share a name but are different dishes stay, and the Writer gives each its own title.
+- **Copyright & trademark risks:** sections still in the source wording (the big one), rewrites too close to the source, brand / ® / ™ names, brand names in titles, restaurant and chef names, credits and website mentions, recipe-site titles ("Joy's Pepper Steak", "… II") and quotations.
+- **Fix with the Writer** rewrites every section with a risk, with the specific fixes added to its instructions. Locked sections are left alone.
+- The badge says **Ready to sell** when no high risks are left; until then the PDF is a proof.
+
+It's a risk screen, not legal advice. `tsx scripts/dev/check-cleanup.ts <dump.json>` runs it offline.
+
 ## Images
 
 The **Images** card on a product page makes the photos; the **Images** tab is the review gallery.
